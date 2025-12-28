@@ -2,3 +2,6 @@ data/raw/Wednesday-workingHours.pcap_ISCX.csv
 data/raw/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv
 data/raw/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv
 data/raw/Tuesday-WorkingHours.pcap_ISCX.csv
+data/raw/02-15-2018.csv
+src/__pycache__/config.cpython-313.pyc
+src/__pycache__/engine.cpython-313.pyc
