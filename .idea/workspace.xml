@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="AutoImportSettings">
-    <option name="autoReloadType" value="SELECTIVE" />
-  </component>
   <component name="ChangeListManager">
-    <list default="true" id="8418f42d-d9e9-46b6-b26c-163f7bb4b3a7" name="Changes" comment="" />
+    <list default="true" id="47dbd928-9cc5-420f-9ee5-a0071197c987" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Tests/attacker.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/Tests/attacker.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -17,29 +17,29 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
   "associatedIndex": 6
 }]]></component>
-  <component name="ProjectId" id="371x3yZzkSznX95gDCHrKy23Tpr" />
+  <component name="ProjectId" id="37ncXYCPxndpYFFWQDZAORNgvkv" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/Tonny/Desktop/Computer Science Degree/FinalProject-IDS",
-    "settings.editor.selected.configurable": "preferences.lookFeel"
+    "git-widget-placeholder": "main"
   }
 }]]></component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="8418f42d-d9e9-46b6-b26c-163f7bb4b3a7" name="Changes" comment="" />
-      <created>1766084183051</created>
+      <changelist id="47dbd928-9cc5-420f-9ee5-a0071197c987" name="Changes" comment="" />
+      <created>1767542316741</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1766084183051</updated>
+      <updated>1767542316741</updated>
     </task>
     <servers />
   </component>
