@@ -28,7 +28,9 @@ class SnifferService:
 
     def start(self):
         self.running = True
-        self.log_callback(f"📡 Sniffer started on: {self.interface_name}\n")
+        msg = f"Sniffer started on: {self.interface_name}\n"
+        self.log_callback(msg)
+        print(f"[SNIFFER] {msg.strip()}")
         
         # פונקציית העצירה של Scapy
         stop_filter = lambda x: not self.running
@@ -36,9 +38,13 @@ class SnifferService:
         try:
             sniff(iface=self.interface_name, prn=self.packet_handler, stop_filter=stop_filter, store=0)
         except Exception as e:
-            self.log_callback(f"❌ Error: {str(e)}\n")
+            err = f"Error: {str(e)}\n"
+            self.log_callback(err)
+            print(f"[SNIFFER] {err.strip()}")
         
-        self.log_callback("🛑 Sniffer stopped.\n")
+        msg = "Sniffer stopped.\n"
+        self.log_callback(msg)
+        print(f"[SNIFFER] {msg.strip()}")
 
     def packet_handler(self, packet):
         if not self.running: return
@@ -59,18 +65,22 @@ class SnifferService:
                 dst_port = packet[TCP].dport
                 tcp_flags = packet[TCP].flags
                 if 'S' in tcp_flags: flags['S'] = 1
+                if 'F' in tcp_flags: flags['F'] = 1
                 if 'R' in tcp_flags: flags['R'] = 1
                 if 'P' in tcp_flags: flags['P'] = 1
                 if 'A' in tcp_flags: flags['A'] = 1
+                if 'U' in tcp_flags: flags['U'] = 1
 
             # עדכון סטטיסטיקה
             flow = self.current_flows[flow_key]
             flow['packet_count'] += 1
             flow['total_bytes'] += len(packet)
             flow['syn_count'] += flags['S']
+            flow['fin_count'] += flags['F']
             flow['rst_count'] += flags['R']
             flow['psh_count'] += flags['P']
             flow['ack_count'] += flags['A']
+            flow['urg_count'] += flags['U']
 
             if dst_port > 0:
                 flow['ports_scanned'].add(dst_port)
@@ -84,27 +94,27 @@ class SnifferService:
                     'Destination Port': dst_port,
                     'Flow Duration': duration * 1_000_000,
                     'Total Fwd Packets': flow['packet_count'],
+                    'Total Length of Fwd Packets': flow['total_bytes'],
                     'Flow Bytes/s': flow['total_bytes'] / duration,
                     'Flow Packets/s': flow['packet_count'] / duration,
                     'SYN Flag Count': flow['syn_count'],
+                    'FIN Flag Count': flow['fin_count'],
                     'RST Flag Count': flow['rst_count'],
                     'PSH Flag Count': flow['psh_count'],
-                    'ACK Flag Count': flow['ack_count']
+                    'ACK Flag Count': flow['ack_count'],
+                    'URG Flag Count': flow['urg_count']
                 }
 
                 result = self.engine.process_and_predict(features)
 
                 if result['is_threat']:
                     label = result['label']
-
-                    if len(flow['ports_scanned']) >= 2:
-                        label = "PortScan"
-
-                    msg = f"🚨 ALERT! [{src_ip}] -> [{dst_ip}] : {label} ({result['confidence']:.0%})\n"
+                    msg = f"ALERT! [{src_ip}] -> [{dst_ip}] : {label} ({result['confidence']:.0%})\n"
                     self.log_callback(msg)
+                    print(f"[IDS] {msg.strip()}")
                     
                     # איפוס השיחה
                     del self.current_flows[flow_key]
 
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[IDS ERROR] {e}")

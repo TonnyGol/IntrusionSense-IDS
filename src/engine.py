@@ -1,9 +1,13 @@
 # src/engine.py
 import os
+import warnings
 import joblib
-import pandas as pd
 import numpy as np
 from config import ATTACK_LABELS
+
+# Suppress sklearn warning about feature names — we use NumPy arrays
+# for performance but maintain correct feature order via _feature_index
+warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 class IDSEngine:
     def __init__(self):
@@ -17,47 +21,43 @@ class IDSEngine:
         try:
             self.model = joblib.load(model_path)
             self.expected_features = joblib.load(features_path)
-            print(f"✅ Model loaded. Expecting {len(self.expected_features)} features.")
+            print(f"[OK] Model loaded. Expecting {len(self.expected_features)} features.")
         except FileNotFoundError:
-            print("❌ Error: Model files not found in 'src/models/'.")
+            print("[ERROR] Model files not found in 'src/models/'.")
             raise
+
+        # Pre-compute: NumPy template (zero-filled) and feature-name-to-index map
+        # This avoids building a DataFrame from scratch on every prediction
+        self._template = np.zeros(len(self.expected_features), dtype=np.float64)
+        self._feature_index = {name: i for i, name in enumerate(self.expected_features)}
 
     def process_and_predict(self, incoming_data_row):
         """
-        מקבל שורה של מידע (Dict או Series),
+        מקבל שורה של מידע (Dict),
         מסדר אותה לפי הפיצ'רים שהמודל דורש, ומחזיר תחזית.
-        """
-        # 1. המרה ל-DataFrame
-        if isinstance(incoming_data_row, dict):
-             df_input = pd.DataFrame([incoming_data_row])
-        else:
-             df_input = pd.DataFrame([incoming_data_row])
-
-        # ניקוי רווחים בשמות העמודות שהתקבלו (תמיד טוב)
-        df_input.columns = df_input.columns.str.strip()
-
-        # 2. בניית וקטור הפיצ'רים הסופי
-        final_df = pd.DataFrame()
-
-        for feature in self.expected_features:
-            # בדיקה פשוטה: האם הפיצ'ר קיים במידע שהתקבל?
-            if feature in df_input.columns:
-                final_df[feature] = df_input[feature]
-            else:
-                # אם חסר מידע, נמלא באפס (Fail Safe)
-                final_df[feature] = 0
         
-        # 3. וידוא שאין NaN
-        final_df.fillna(0, inplace=True)
+        Optimized: uses pre-allocated NumPy array instead of DataFrame.
+        """
+        # 1. Build feature vector from pre-allocated template
+        row = self._template.copy()
 
-        # 4. ביצוע התחזית
+        for key, value in incoming_data_row.items():
+            idx = self._feature_index.get(key)
+            if idx is not None:
+                row[idx] = value if value == value else 0  # NaN check: NaN != NaN
+
+        # 2. Reshape for model (expects 2D array)
+        row_2d = row.reshape(1, -1)
+
+        # 3. Single model call — predict_proba gives us both the class and confidence
         try:
-            pred_index = self.model.predict(final_df)[0]
-            confidence = np.max(self.model.predict_proba(final_df)[0])
+            proba = self.model.predict_proba(row_2d)[0]
+            pred_index = int(np.argmax(proba))
+            confidence = float(proba[pred_index])
             
             return {
                 'label': ATTACK_LABELS.get(pred_index, "Unknown"),
-                'is_threat': pred_index != 0, # אמת אם זה לא 0
+                'is_threat': pred_index != 0,
                 'confidence': confidence
             }
         except Exception as e:

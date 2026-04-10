@@ -1,12 +1,16 @@
 # src/test_web_attack.py
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 from scapy.all import send, IP, TCP, Raw
+from net_utils import get_active_interface_name
 
 TARGET_IP = "8.8.8.8"
-IFACE_NAME = "Realtek Gaming 2.5GbE Family Controller"
+IFACE_NAME = get_active_interface_name()
 TARGET_PORT = 80 # פורט של Web
 
-print(f"🚀 STARTING WEB ATTACK (Category 4)...")
+print(f"STARTING WEB ATTACK (Category 4)...")
+print(f"Interface: {IFACE_NAME}")
 print(f"Sending Malicious HTTP Requests to Port {TARGET_PORT}...")
 
 # דימוי של הזרקת SQL בתוך בקשת HTTP

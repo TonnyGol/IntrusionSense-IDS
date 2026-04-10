@@ -1,12 +1,16 @@
 # src/test_anomaly.py
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 import random
 from scapy.all import send, IP, TCP, Raw
+from net_utils import get_active_interface_name
 
 TARGET_IP = "8.8.8.8"
-IFACE_NAME = "Realtek Gaming 2.5GbE Family Controller"
+IFACE_NAME = get_active_interface_name()
 
-print(f"🚀 STARTING ANOMALY TEST (Category 5?)...")
+print(f"STARTING ANOMALY TEST (Category 5?)...")
+print(f"Interface: {IFACE_NAME}")
 
 try:
     while True:

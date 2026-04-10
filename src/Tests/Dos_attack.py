@@ -1,15 +1,15 @@
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 import random
 from scapy.all import send, IP, TCP, conf
+from net_utils import get_active_interface_name
 
-# 1. הגדרת יעד חיצוני (כדי להכריח מעבר דרך הכרטיס הפיזי)
-TARGET_IP = "8.8.8.8" 
+TARGET_IP = "8.8.8.8"
+IFACE_NAME = get_active_interface_name()
 
-# 2. הגדרת הכרטיס שממנו שולחים (אותו שם בדיוק כמו ב-Sniffer!)
-IFACE_NAME = "Realtek Gaming 2.5GbE Family Controller"
-
-print(f"🚀 FORCING ATTACK THROUGH: {IFACE_NAME}")
-print(f"🎯 TARGET: {TARGET_IP}")
+print(f"FORCING ATTACK THROUGH: {IFACE_NAME}")
+print(f"TARGET: {TARGET_IP}")
 
 try:
     while True:

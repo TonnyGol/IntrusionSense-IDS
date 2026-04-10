@@ -15,10 +15,10 @@ from tkinter import scrolledtext, messagebox
 import threading
 import subprocess
 from sniffer_service import SnifferService # זה נמצא לידנו ב-Interface
-# engine מיובא ע"י sniffer_service, ועכשיו זה יעבוד כי הוספנו את parent_dir
+from net_utils import get_active_interface_name
 
 # --- הגדרות ---
-INTERFACE_NAME = "Realtek Gaming 2.5GbE Family Controller" 
+INTERFACE_NAME = get_active_interface_name()
 
 class IDSDashboard:
     def __init__(self, root):
