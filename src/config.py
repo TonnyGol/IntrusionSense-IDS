@@ -1,4 +1,9 @@
-INTERFACE_NAME = "Realtek Gaming 2.5GbE Family Controller"
+try:
+    from net_utils import get_active_interface_name
+except ImportError:
+    from src.net_utils import get_active_interface_name
+
+INTERFACE_NAME = get_active_interface_name()
 
 # הגדרת שמות ההתקפות
 ATTACK_LABELS = {

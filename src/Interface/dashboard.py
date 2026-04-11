@@ -55,9 +55,19 @@ class IDSDashboard:
         lbl_defense = tk.Label(left_panel, text="🛡️ DEFENSE CONTROLS", font=("Arial", 12, "bold"), bg="#2d2d2d", fg="white")
         lbl_defense.pack(pady=(20, 10))
 
+        # Select Model Type
+        lbl_model = tk.Label(left_panel, text="🧠 AI MODEL", font=("Arial", 10, "bold"), bg="#2d2d2d", fg="lightblue")
+        lbl_model.pack(pady=(5, 5))
+        
+        self.model_var = tk.StringVar(value="rf")
+        
+        tk.Radiobutton(left_panel, text="Random Forest", variable=self.model_var, value="rf", bg="#2d2d2d", fg="white", selectcolor="#444", activebackground="#2d2d2d").pack(anchor="w", padx=20)
+        tk.Radiobutton(left_panel, text="XGBoost", variable=self.model_var, value="xgboost", bg="#2d2d2d", fg="white", selectcolor="#444", activebackground="#2d2d2d").pack(anchor="w", padx=20)
+        tk.Radiobutton(left_panel, text="LightGBM", variable=self.model_var, value="lightgbm", bg="#2d2d2d", fg="white", selectcolor="#444", activebackground="#2d2d2d").pack(anchor="w", padx=20)
+
         self.btn_sniffer = tk.Button(left_panel, text="START SNIFFER", font=("Arial", 10, "bold"), 
                                      bg="green", fg="white", width=20, height=2, command=self.toggle_sniffer)
-        self.btn_sniffer.pack(pady=5)
+        self.btn_sniffer.pack(pady=(15, 5))
 
         tk.Frame(left_panel, height=2, bg="gray").pack(fill=tk.X, pady=20, padx=10)
 
@@ -98,11 +108,15 @@ class IDSDashboard:
             self.btn_sniffer.config(text="START SNIFFER", bg="green")
             self.log("Stopping sniffer...\n", "yellow")
         else:
-            self.sniffer_service = SnifferService(INTERFACE_NAME, self.log)
-            self.sniffer_thread = threading.Thread(target=self.sniffer_service.start)
-            self.sniffer_thread.daemon = True
-            self.sniffer_thread.start()
-            self.btn_sniffer.config(text="STOP SNIFFER", bg="red")
+            selected_model = self.model_var.get()
+            try:
+                self.sniffer_service = SnifferService(INTERFACE_NAME, self.log, model_type=selected_model)
+                self.sniffer_thread = threading.Thread(target=self.sniffer_service.start)
+                self.sniffer_thread.daemon = True
+                self.sniffer_thread.start()
+                self.btn_sniffer.config(text="STOP SNIFFER", bg="red")
+            except Exception as e:
+                self.log(f"Failed to load {selected_model} model: {e}\n(Did you train it first?)\n", "red")
 
     def run_attack_script(self, script_name):
         self.stop_attack() # עצירת התקפות קודמות

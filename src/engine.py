@@ -10,11 +10,22 @@ from config import ATTACK_LABELS
 warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 class IDSEngine:
-    def __init__(self):
+    def __init__(self, model_type="rf"):
         # חישוב נתיבים דינמי לטעינת המודל
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_dir, 'models', 'multiClass_ids_model_rf.pkl')
-        features_path = os.path.join(base_dir, 'models', 'model_features.pkl')
+        
+        if model_type == "xgboost":
+            model_file = 'multiClass_ids_model_xgboost.pkl'
+            feat_file = 'model_features_xgboost.pkl'
+        elif model_type == "lightgbm":
+            model_file = 'multiClass_ids_model_lightgbm.pkl'
+            feat_file = 'model_features_lightgbm.pkl'
+        else:
+            model_file = 'multiClass_ids_model_rf.pkl'
+            feat_file = 'model_features.pkl'
+
+        model_path = os.path.join(base_dir, 'models', model_file)
+        features_path = os.path.join(base_dir, 'models', feat_file)
 
         print(f"Loading model from: {model_path}")
         

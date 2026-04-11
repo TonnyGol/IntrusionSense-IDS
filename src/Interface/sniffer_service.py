@@ -5,11 +5,11 @@ from collections import defaultdict
 from engine import IDSEngine
 
 class SnifferService:
-    def __init__(self, interface_name, log_callback):
+    def __init__(self, interface_name, log_callback, model_type="rf"):
         self.interface_name = interface_name
         self.log_callback = log_callback # פונקציה שתקבל את הטקסט ותציג ב-GUI
         self.running = False
-        self.engine = IDSEngine()
+        self.engine = IDSEngine(model_type=model_type)
         self.current_flows = defaultdict(lambda: {
             'start_time': time.time(),
             'packet_count': 0,
