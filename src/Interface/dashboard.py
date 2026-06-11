@@ -1,155 +1,490 @@
 import sys
 import os
 
-# --- תיקון נתיבים (חובה להיות ראשון!) ---
-# משיג את הנתיב של התיקייה הנוכחית (src/Interface)
+# --- Path Fix (must be first!) ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# משיג את הנתיב של התיקייה מעל (src)
 parent_dir = os.path.dirname(current_dir)
-# מוסיף את src לרשימת המקומות שפייתון מחפש בהם
 sys.path.append(parent_dir)
 
-# עכשיו אפשר לייבא דברים שנמצאים ב-src או באותה תיקייה
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
+from tkinter import ttk, font as tkfont
 import threading
-import subprocess
-from sniffer_service import SnifferService # זה נמצא לידנו ב-Interface
+import time
+from datetime import datetime
+from sniffer_service import SnifferService
 from net_utils import get_active_interface_name
 
-# --- הגדרות ---
 INTERFACE_NAME = get_active_interface_name()
+
+# ══════════════════════════════════════════════════════════════
+#  COLOR PALETTE
+# ══════════════════════════════════════════════════════════════
+COLORS = {
+    'bg_darkest':   '#0a0e1a',
+    'bg_dark':      '#111827',
+    'bg_card':      '#1a2332',
+    'bg_sidebar':   '#0f1629',
+    'border':       '#1e293b',
+    'border_light': '#2a3a52',
+    'text_primary': '#e2e8f0',
+    'text_secondary': '#94a3b8',
+    'text_dim':     '#64748b',
+    'accent_cyan':  '#00d4ff',
+    'accent_red':   '#ef4444',
+    'accent_amber': '#f59e0b',
+    'accent_green': '#22c55e',
+    'accent_blue':  '#3b82f6',
+    'hover':        '#1e293b',
+    'active_nav':   '#0c2d48',
+    'btn_start':    '#166534',
+    'btn_stop':     '#991b1b',
+    'severity_high_bg':   '#3b1111',
+    'severity_med_bg':    '#3b2a05',
+    'severity_low_bg':    '#0a3b1a',
+    'log_bg':       '#060b14',
+}
+
+# Map attack types to severity
+SEVERITY_MAP = {
+    'DDoS': 'High', 'DoS': 'High', 'Bots': 'High',
+    'Brute Force': 'Medium', 'Port Scanning': 'Medium',
+    'Web Attacks': 'Low',
+}
+
+SEVERITY_COLORS = {
+    'High': COLORS['accent_red'],
+    'Medium': COLORS['accent_amber'],
+    'Low': COLORS['accent_green'],
+}
+
 
 class IDSDashboard:
     def __init__(self, root):
         self.root = root
-        self.root.title("🛡️ AI-Powered IDS Dashboard")
-        self.root.geometry("900x600")
-        self.root.configure(bg="#1e1e1e")
+        self.root.title("IntrusionSense — IDS Dashboard")
+        self.root.geometry("1280x780")
+        self.root.minsize(1100, 650)
+        self.root.configure(bg=COLORS['bg_darkest'])
 
+        # State
         self.sniffer_thread = None
         self.sniffer_service = None
-        self.attack_process = None
+        self.is_sniffing = False
+        self.alerts = []          # list of dicts
+        self.packets_analyzed = 0
+        self.stats = {'total': 0, 'High': 0, 'Medium': 0, 'Low': 0}
+        self.model_loaded = False
 
-        self.setup_ui()
+        # Fonts
+        self.font_brand   = ("Segoe UI", 16, "bold")
+        self.font_nav      = ("Segoe UI", 11)
+        self.font_nav_bold = ("Segoe UI", 11, "bold")
+        self.font_header   = ("Segoe UI", 12)
+        self.font_stat_num = ("Segoe UI", 28, "bold")
+        self.font_stat_lbl = ("Segoe UI", 9)
+        self.font_stat_sub = ("Segoe UI", 8)
+        self.font_table    = ("Segoe UI", 9)
+        self.font_table_header = ("Segoe UI", 9, "bold")
+        self.font_log      = ("Consolas", 9)
+        self.font_status   = ("Segoe UI", 9)
+        self.font_btn      = ("Segoe UI", 10, "bold")
+        self.font_clock    = ("Consolas", 11)
 
-    def setup_ui(self):
-        # כותרת
-        header = tk.Label(self.root, text="AI INTRUSION DETECTION SYSTEM", 
-                          font=("Consolas", 20, "bold"), bg="#1e1e1e", fg="#00ff00")
-        header.pack(pady=10)
+        self._build_ui()
+        self._tick_clock()
 
-        # אזור ראשי
-        main_frame = tk.Frame(self.root, bg="#1e1e1e")
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+    # ══════════════════════════════════════════════════════════
+    #  BUILD UI
+    # ══════════════════════════════════════════════════════════
+    def _build_ui(self):
+        # ── Sidebar ──────────────────────────────────────────
+        self.sidebar = tk.Frame(self.root, bg=COLORS['bg_sidebar'], width=240)
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
+        self.sidebar.pack_propagate(False)
 
-        # צד שמאל
-        left_panel = tk.Frame(main_frame, bg="#2d2d2d", width=250)
-        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        self._build_sidebar()
 
-        # צד ימין
-        right_panel = tk.Frame(main_frame, bg="#1e1e1e")
-        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        # ── Main Area ────────────────────────────────────────
+        main = tk.Frame(self.root, bg=COLORS['bg_darkest'])
+        main.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-        # כפתורים
-        lbl_defense = tk.Label(left_panel, text="🛡️ DEFENSE CONTROLS", font=("Arial", 12, "bold"), bg="#2d2d2d", fg="white")
-        lbl_defense.pack(pady=(20, 10))
+        self._build_header(main)
+        self._build_stat_cards(main)
+        self._build_alerts_table(main)
+        self._build_log_panel(main)
 
-        # Select Model Type
-        lbl_model = tk.Label(left_panel, text="🧠 AI MODEL", font=("Arial", 10, "bold"), bg="#2d2d2d", fg="lightblue")
-        lbl_model.pack(pady=(5, 5))
-        
-        self.model_var = tk.StringVar(value="rf")
-        
-        tk.Radiobutton(left_panel, text="Random Forest", variable=self.model_var, value="rf", bg="#2d2d2d", fg="white", selectcolor="#444", activebackground="#2d2d2d").pack(anchor="w", padx=20)
-        tk.Radiobutton(left_panel, text="XGBoost", variable=self.model_var, value="xgboost", bg="#2d2d2d", fg="white", selectcolor="#444", activebackground="#2d2d2d").pack(anchor="w", padx=20)
-        tk.Radiobutton(left_panel, text="LightGBM", variable=self.model_var, value="lightgbm", bg="#2d2d2d", fg="white", selectcolor="#444", activebackground="#2d2d2d").pack(anchor="w", padx=20)
+    # ─────────────────────────────────────────────────────────
+    #  SIDEBAR
+    # ─────────────────────────────────────────────────────────
+    def _build_sidebar(self):
+        sb = self.sidebar
 
-        self.btn_sniffer = tk.Button(left_panel, text="START SNIFFER", font=("Arial", 10, "bold"), 
-                                     bg="green", fg="white", width=20, height=2, command=self.toggle_sniffer)
-        self.btn_sniffer.pack(pady=(15, 5))
+        # Brand
+        brand_frame = tk.Frame(sb, bg=COLORS['bg_sidebar'])
+        brand_frame.pack(pady=(20, 30))
+        tk.Label(brand_frame, text="🛡️", font=("Segoe UI", 20),
+                 bg=COLORS['bg_sidebar'], fg=COLORS['accent_cyan']).pack(side=tk.LEFT)
+        tk.Label(brand_frame, text=" IntrusionSense", font=("Segoe UI", 14, "bold"),
+                 bg=COLORS['bg_sidebar'], fg=COLORS['text_primary']).pack(side=tk.LEFT)
 
-        tk.Frame(left_panel, height=2, bg="gray").pack(fill=tk.X, pady=20, padx=10)
+        # Navigation
+        nav_items = [
+            ("📊", "Dashboard", True),
+            ("🔔", "Alerts", False),
+            ("📡", "Traffic Monitor", False),
+            ("📋", "Historical Logs", False),
+            ("⚙️", "Settings", False),
+        ]
+        self.nav_buttons = []
+        for icon, label, active in nav_items:
+            btn = self._create_nav_button(sb, icon, label, active)
+            self.nav_buttons.append((btn, label))
 
-        lbl_attack = tk.Label(left_panel, text="💀 ATTACK SIMULATION", font=("Arial", 12, "bold"), bg="#2d2d2d", fg="red")
-        lbl_attack.pack(pady=(10, 10))
+        # Spacer
+        tk.Frame(sb, bg=COLORS['bg_sidebar']).pack(fill=tk.BOTH, expand=True)
 
-        # כפתורי התקפה
-        self.create_attack_btn(left_panel, "LAUNCH DoS ATTACK", "Dos_attack.py")
-        self.create_attack_btn(left_panel, "LAUNCH PORTSCAN", "PortScan_attack.py")
-        self.create_attack_btn(left_panel, "LAUNCH BRUTE FORCE", "BruteForce_attack.py")
-        self.create_attack_btn(left_panel, "LAUNCH WEB ATTACK", "Web_attack.py")
+        # ── System Status ────────────────────────────────────
+        status_frame = tk.Frame(sb, bg=COLORS['bg_sidebar'])
+        status_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
 
-        btn_stop_atk = tk.Button(left_panel, text="⏹ STOP ALL ATTACKS", bg="darkred", fg="white", width=20, 
-                                 command=self.stop_attack)
-        btn_stop_atk.pack(pady=20)
+        tk.Label(status_frame, text="System Status", font=("Segoe UI", 10, "bold"),
+                 bg=COLORS['bg_sidebar'], fg=COLORS['text_secondary']).pack(anchor=tk.W, pady=(0, 8))
 
-        # לוגים
-        self.log_area = scrolledtext.ScrolledText(right_panel, bg="black", fg="#00ff00", font=("Consolas", 10))
-        self.log_area.pack(fill=tk.BOTH, expand=True)
-        self.log("Welcome to IDS Dashboard. System ready.", "white")
+        # Sniffer status
+        row_sniff = tk.Frame(status_frame, bg=COLORS['bg_sidebar'])
+        row_sniff.pack(fill=tk.X, pady=2)
+        tk.Label(row_sniff, text="Sniffer:", font=self.font_status,
+                 bg=COLORS['bg_sidebar'], fg=COLORS['text_dim']).pack(side=tk.LEFT)
+        self.lbl_sniffer_status = tk.Label(row_sniff, text="● Stopped", font=self.font_status,
+                                           bg=COLORS['bg_sidebar'], fg=COLORS['accent_red'])
+        self.lbl_sniffer_status.pack(side=tk.RIGHT)
 
-    def create_attack_btn(self, parent, text, script):
-        btn = tk.Button(parent, text=text, bg="#444", fg="white", width=20, 
-                        command=lambda: self.run_attack_script(script))
-        btn.pack(pady=5)
+        # Model status
+        row_model = tk.Frame(status_frame, bg=COLORS['bg_sidebar'])
+        row_model.pack(fill=tk.X, pady=2)
+        tk.Label(row_model, text="ML Model:", font=self.font_status,
+                 bg=COLORS['bg_sidebar'], fg=COLORS['text_dim']).pack(side=tk.LEFT)
+        self.lbl_model_status = tk.Label(row_model, text="● Not Loaded", font=self.font_status,
+                                         bg=COLORS['bg_sidebar'], fg=COLORS['text_dim'])
+        self.lbl_model_status.pack(side=tk.RIGHT)
 
-    def log(self, message, color="#00ff00"):
-        self.log_area.insert(tk.END, message)
-        if "ALERT" in message:
-            last_line_index = self.log_area.index("end-2c linestart")
-            self.log_area.tag_add("alert", last_line_index, "end-1c")
-            self.log_area.tag_config("alert", foreground="red", background="#220000")
-        self.log_area.see(tk.END)
+        # Version
+        tk.Label(status_frame, text="Version 1.0.0", font=("Segoe UI", 8),
+                 bg=COLORS['bg_sidebar'], fg=COLORS['text_dim']).pack(anchor=tk.W, pady=(10, 0))
+
+    def _create_nav_button(self, parent, icon, text, active=False):
+        bg = COLORS['active_nav'] if active else COLORS['bg_sidebar']
+        fg = COLORS['accent_cyan'] if active else COLORS['text_secondary']
+        left_accent = COLORS['accent_cyan'] if active else COLORS['bg_sidebar']
+
+        container = tk.Frame(parent, bg=COLORS['bg_sidebar'])
+        container.pack(fill=tk.X)
+
+        # Left accent bar
+        accent = tk.Frame(container, bg=left_accent, width=3)
+        accent.pack(side=tk.LEFT, fill=tk.Y)
+
+        btn = tk.Label(container, text=f"  {icon}  {text}", font=self.font_nav if not active else self.font_nav_bold,
+                       bg=bg, fg=fg, anchor=tk.W, padx=12, pady=10, cursor="hand2")
+        btn.pack(fill=tk.X, expand=True)
+
+        # Hover effects
+        def on_enter(e):
+            if not active:
+                btn.configure(bg=COLORS['hover'])
+        def on_leave(e):
+            if not active:
+                btn.configure(bg=COLORS['bg_sidebar'])
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+
+        return container
+
+    # ─────────────────────────────────────────────────────────
+    #  HEADER
+    # ─────────────────────────────────────────────────────────
+    def _build_header(self, parent):
+        header = tk.Frame(parent, bg=COLORS['bg_dark'], height=50)
+        header.pack(fill=tk.X, padx=15, pady=(12, 0))
+        header.pack_propagate(False)
+
+        # Left: monitoring status
+        left = tk.Frame(header, bg=COLORS['bg_dark'])
+        left.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+
+        self.lbl_monitor_dot = tk.Label(left, text="●", font=("Segoe UI", 10),
+                                         bg=COLORS['bg_dark'], fg=COLORS['text_dim'])
+        self.lbl_monitor_dot.pack(side=tk.LEFT, pady=12)
+        self.lbl_monitor_text = tk.Label(left, text=" Idle", font=self.font_header,
+                                          bg=COLORS['bg_dark'], fg=COLORS['text_dim'])
+        self.lbl_monitor_text.pack(side=tk.LEFT, pady=12)
+
+        # Right: clock + sniffer button
+        right = tk.Frame(header, bg=COLORS['bg_dark'])
+        right.pack(side=tk.RIGHT, fill=tk.Y, padx=10)
+
+        self.btn_sniffer = tk.Label(right, text="  ▶  Start Sniffing  ", font=self.font_btn,
+                                     bg=COLORS['btn_start'], fg="white",
+                                     padx=16, pady=6, cursor="hand2")
+        self.btn_sniffer.pack(side=tk.RIGHT, pady=9)
+        self.btn_sniffer.bind("<Button-1>", lambda e: self.toggle_sniffer())
+        self.btn_sniffer.bind("<Enter>", lambda e: self.btn_sniffer.configure(
+            bg='#1a7a3d' if not self.is_sniffing else '#b91c1c'))
+        self.btn_sniffer.bind("<Leave>", lambda e: self.btn_sniffer.configure(
+            bg=COLORS['btn_start'] if not self.is_sniffing else COLORS['btn_stop']))
+
+        self.lbl_clock = tk.Label(right, text="00:00:00", font=self.font_clock,
+                                   bg=COLORS['bg_dark'], fg=COLORS['text_secondary'])
+        self.lbl_clock.pack(side=tk.RIGHT, padx=(0, 20), pady=12)
+        tk.Label(right, text="🕐", font=("Segoe UI", 12),
+                 bg=COLORS['bg_dark'], fg=COLORS['text_dim']).pack(side=tk.RIGHT, pady=12)
+
+    # ─────────────────────────────────────────────────────────
+    #  STAT CARDS
+    # ─────────────────────────────────────────────────────────
+    def _build_stat_cards(self, parent):
+        row = tk.Frame(parent, bg=COLORS['bg_darkest'])
+        row.pack(fill=tk.X, padx=15, pady=12)
+
+        cards_config = [
+            ("Total Alerts",      'total',  COLORS['accent_cyan']),
+            ("High Severity",     'High',   COLORS['accent_red']),
+            ("Medium Severity",   'Medium', COLORS['accent_amber']),
+            ("Low Severity",      'Low',    COLORS['accent_green']),
+            ("Packets Analyzed",  'pkts',   COLORS['accent_blue']),
+        ]
+
+        self.stat_labels = {}
+        for title, key, color in cards_config:
+            card = tk.Frame(row, bg=COLORS['bg_card'], highlightbackground=COLORS['border'],
+                            highlightthickness=1, padx=18, pady=12)
+            card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
+
+            # Top accent line
+            accent = tk.Frame(card, bg=color, height=3)
+            accent.pack(fill=tk.X, pady=(0, 10))
+
+            tk.Label(card, text=title, font=self.font_stat_lbl,
+                     bg=COLORS['bg_card'], fg=COLORS['text_secondary']).pack(anchor=tk.W)
+
+            num_lbl = tk.Label(card, text="0", font=self.font_stat_num,
+                               bg=COLORS['bg_card'], fg=color)
+            num_lbl.pack(anchor=tk.W, pady=(2, 0))
+            self.stat_labels[key] = num_lbl
+
+    # ─────────────────────────────────────────────────────────
+    #  ALERTS TABLE
+    # ─────────────────────────────────────────────────────────
+    def _build_alerts_table(self, parent):
+        # Section header
+        section = tk.Frame(parent, bg=COLORS['bg_darkest'])
+        section.pack(fill=tk.X, padx=15, pady=(0, 4))
+        tk.Label(section, text="Recent Alerts", font=("Segoe UI", 13, "bold"),
+                 bg=COLORS['bg_darkest'], fg=COLORS['text_primary']).pack(side=tk.LEFT)
+        self.lbl_alert_count = tk.Label(section, text="0 alerts", font=self.font_stat_lbl,
+                                         bg=COLORS['bg_darkest'], fg=COLORS['text_dim'])
+        self.lbl_alert_count.pack(side=tk.RIGHT)
+
+        # Table container
+        table_frame = tk.Frame(parent, bg=COLORS['bg_card'], highlightbackground=COLORS['border'],
+                               highlightthickness=1)
+        table_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 6))
+
+        # Style the Treeview
+        style = ttk.Style()
+        style.theme_use("default")
+
+        style.configure("Dark.Treeview",
+                         background=COLORS['bg_card'],
+                         foreground=COLORS['text_primary'],
+                         fieldbackground=COLORS['bg_card'],
+                         borderwidth=0,
+                         font=self.font_table,
+                         rowheight=32)
+        style.configure("Dark.Treeview.Heading",
+                         background=COLORS['bg_dark'],
+                         foreground=COLORS['text_secondary'],
+                         borderwidth=0,
+                         font=self.font_table_header,
+                         relief="flat")
+        style.map("Dark.Treeview",
+                   background=[("selected", COLORS['hover'])],
+                   foreground=[("selected", COLORS['accent_cyan'])])
+        style.map("Dark.Treeview.Heading",
+                   background=[("active", COLORS['border'])])
+
+        columns = ("time", "severity", "src_ip", "dst_ip", "attack", "confidence")
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings",
+                                  style="Dark.Treeview", selectmode="browse")
+
+        self.tree.heading("time",       text="Time")
+        self.tree.heading("severity",   text="Severity")
+        self.tree.heading("src_ip",     text="Source IP")
+        self.tree.heading("dst_ip",     text="Destination IP")
+        self.tree.heading("attack",     text="Attack Type")
+        self.tree.heading("confidence", text="Confidence")
+
+        self.tree.column("time",       width=150, minwidth=120)
+        self.tree.column("severity",   width=90,  minwidth=70, anchor=tk.CENTER)
+        self.tree.column("src_ip",     width=140, minwidth=100)
+        self.tree.column("dst_ip",     width=140, minwidth=100)
+        self.tree.column("attack",     width=180, minwidth=120)
+        self.tree.column("confidence", width=90,  minwidth=70, anchor=tk.CENTER)
+
+        # Severity tag colors
+        self.tree.tag_configure("High",   foreground=COLORS['accent_red'])
+        self.tree.tag_configure("Medium", foreground=COLORS['accent_amber'])
+        self.tree.tag_configure("Low",    foreground=COLORS['accent_green'])
+
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Empty state message
+        self.lbl_empty = tk.Label(table_frame, text="No alerts yet — start the sniffer to begin monitoring",
+                                   font=("Segoe UI", 11), bg=COLORS['bg_card'], fg=COLORS['text_dim'])
+        self.lbl_empty.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    # ─────────────────────────────────────────────────────────
+    #  LOG PANEL
+    # ─────────────────────────────────────────────────────────
+    def _build_log_panel(self, parent):
+        log_frame = tk.Frame(parent, bg=COLORS['bg_darkest'])
+        log_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
+
+        # Header row
+        log_header = tk.Frame(log_frame, bg=COLORS['bg_dark'])
+        log_header.pack(fill=tk.X)
+        tk.Label(log_header, text="  ⌨  Live Log", font=("Segoe UI", 10, "bold"),
+                 bg=COLORS['bg_dark'], fg=COLORS['text_secondary']).pack(side=tk.LEFT, pady=5)
+
+        # Log text
+        self.log_text = tk.Text(log_frame, bg=COLORS['log_bg'], fg=COLORS['accent_green'],
+                                 font=self.font_log, height=6, wrap=tk.WORD,
+                                 borderwidth=0, highlightthickness=0,
+                                 insertbackground=COLORS['accent_green'],
+                                 selectbackground=COLORS['border_light'])
+        self.log_text.pack(fill=tk.X)
+        self.log_text.configure(state=tk.DISABLED)
+
+        # Log tags
+        self.log_text.tag_configure("info",    foreground=COLORS['accent_green'])
+        self.log_text.tag_configure("alert",   foreground=COLORS['accent_red'], font=("Consolas", 9, "bold"))
+        self.log_text.tag_configure("warning", foreground=COLORS['accent_amber'])
+        self.log_text.tag_configure("system",  foreground=COLORS['accent_cyan'])
+
+        self._log("System initialized. Ready to sniff.\n", "system")
+
+    # ══════════════════════════════════════════════════════════
+    #  LOGIC
+    # ══════════════════════════════════════════════════════════
+    def _log(self, message, tag="info"):
+        """Append a message to the log panel."""
+        self.log_text.configure(state=tk.NORMAL)
+        self.log_text.insert(tk.END, message, tag)
+        self.log_text.see(tk.END)
+        self.log_text.configure(state=tk.DISABLED)
+
+    def _tick_clock(self):
+        """Update the clock label every second."""
+        now = datetime.now().strftime("%H:%M:%S")
+        self.lbl_clock.configure(text=now)
+        self.root.after(1000, self._tick_clock)
+
+    def _poll_packets(self):
+        """Poll the sniffer's live packet count every 500ms."""
+        if self.sniffer_service and self.is_sniffing:
+            self.packets_analyzed = self.sniffer_service.packet_count
+            self._update_stats()
+            self.root.after(500, self._poll_packets)
+
+    def _update_stats(self):
+        """Refresh all stat card numbers."""
+        self.stat_labels['total'].configure(text=str(self.stats['total']))
+        self.stat_labels['High'].configure(text=str(self.stats['High']))
+        self.stat_labels['Medium'].configure(text=str(self.stats['Medium']))
+        self.stat_labels['Low'].configure(text=str(self.stats['Low']))
+        self.stat_labels['pkts'].configure(text=str(self.packets_analyzed))
+        self.lbl_alert_count.configure(text=f"{self.stats['total']} alerts")
+
+    def _add_alert(self, src_ip, dst_ip, attack_type, confidence_str):
+        """Add a row to the alerts table and update stats."""
+        severity = SEVERITY_MAP.get(attack_type, "Medium")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Hide empty-state label
+        self.lbl_empty.place_forget()
+
+        # Insert at top of table
+        self.tree.insert("", 0, values=(timestamp, severity, src_ip, dst_ip, attack_type, confidence_str),
+                         tags=(severity,))
+
+        # Update stats
+        self.stats['total'] += 1
+        self.stats[severity] = self.stats.get(severity, 0) + 1
+        self._update_stats()
+
+    def sniffer_log_callback(self, message):
+        """
+        Called by SnifferService on its background thread.
+        We schedule UI updates on the main thread using root.after().
+        """
+        # Parse ALERT messages to extract structured data
+        if "ALERT!" in message:
+            # Format: "ALERT! [src] -> [dst] : Label (XX%)\n"
+            try:
+                parts = message.split("[")
+                src_ip = parts[1].split("]")[0]
+                dst_ip = parts[2].split("]")[0]
+                rest = message.split(" : ")[1]
+                attack_type = rest.split(" (")[0]
+                confidence = rest.split("(")[1].rstrip(")\n")
+
+                self.root.after(0, lambda s=src_ip, d=dst_ip, a=attack_type, c=confidence:
+                                self._add_alert(s, d, a, c))
+                self.root.after(0, lambda m=message: self._log(m, "alert"))
+            except (IndexError, ValueError):
+                self.root.after(0, lambda m=message: self._log(m, "warning"))
+        else:
+            tag = "system" if "Sniffer" in message or "Layer" in message else "info"
+            self.root.after(0, lambda m=message, t=tag: self._log(m, t))
+
+
 
     def toggle_sniffer(self):
-        if self.sniffer_service and self.sniffer_service.running:
+        if self.is_sniffing:
+            # Stop
             self.sniffer_service.stop()
-            self.btn_sniffer.config(text="START SNIFFER", bg="green")
-            self.log("Stopping sniffer...\n", "yellow")
+            self.is_sniffing = False
+            self.btn_sniffer.configure(text="  ▶  Start Sniffing  ", bg=COLORS['btn_start'])
+            self.lbl_sniffer_status.configure(text="● Stopped", fg=COLORS['accent_red'])
+            self.lbl_monitor_dot.configure(fg=COLORS['text_dim'])
+            self.lbl_monitor_text.configure(text=" Idle", fg=COLORS['text_dim'])
+            self._log("Sniffer stopped.\n", "warning")
         else:
-            selected_model = self.model_var.get()
+            # Start
             try:
-                self.sniffer_service = SnifferService(INTERFACE_NAME, self.log, model_type=selected_model)
+                self.sniffer_service = SnifferService(INTERFACE_NAME, self.sniffer_log_callback)
+                self.model_loaded = True
+                self.lbl_model_status.configure(text="● Loaded", fg=COLORS['accent_green'])
+
                 self.sniffer_thread = threading.Thread(target=self.sniffer_service.start)
                 self.sniffer_thread.daemon = True
                 self.sniffer_thread.start()
-                self.btn_sniffer.config(text="STOP SNIFFER", bg="red")
+
+                self.is_sniffing = True
+                self.btn_sniffer.configure(text="  ■  Stop Sniffing  ", bg=COLORS['btn_stop'])
+                self.lbl_sniffer_status.configure(text="● Running", fg=COLORS['accent_green'])
+                self.lbl_monitor_dot.configure(fg=COLORS['accent_green'])
+                self.lbl_monitor_text.configure(text=" Monitoring", fg=COLORS['accent_green'])
+                self._poll_packets()
             except Exception as e:
-                self.log(f"Failed to load {selected_model} model: {e}\n(Did you train it first?)\n", "red")
+                self._log(f"Failed to start: {e}\n", "alert")
+                self.lbl_model_status.configure(text="● Error", fg=COLORS['accent_red'])
 
-    def run_attack_script(self, script_name):
-        self.stop_attack() # עצירת התקפות קודמות
-        
-        # --- חישוב הנתיב המדויק לתיקיית Tests ---
-        # 1. איפה אני נמצא עכשיו? (src/Interface)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # 2. עלייה למעלה לתיקיית האב (src)
-        src_dir = os.path.dirname(current_dir)
-        
-        # 3. כניסה לתיקיית Tests וחיבור שם הקובץ
-        script_path = os.path.join(src_dir, 'Tests', script_name)
-        
-        # בדיקה שהקובץ אכן קיים לפני שמנסים להריץ
-        if not os.path.exists(script_path):
-            messagebox.showerror("Error", f"Script not found at:\n{script_path}")
-            self.log(f"Error: Could not find {script_path}\n", "red")
-            return
-
-        self.log(f"\n🚀 Launching {script_name}...\n", "orange")
-        
-        try:
-            # הרצה בחלון קונסול נפרד
-            self.attack_process = subprocess.Popen([sys.executable, script_path], creationflags=0x08000000)
-        except Exception as e:
-            self.log(f"Error launching attack: {e}\n", "red")
-
-    def stop_attack(self):
-        if self.attack_process:
-            self.attack_process.terminate()
-            self.attack_process = None
-            self.log("\n🛑 Attack simulation stopped.\n", "yellow")
 
 if __name__ == "__main__":
     try:

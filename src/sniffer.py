@@ -18,7 +18,9 @@ current_flows = defaultdict(lambda: {
     'rst_count': 0,
     'psh_count': 0,
     'ack_count': 0,
-    'urg_count': 0
+    'urg_count': 0,
+    'fwd_packet_length_max': 0,
+    'fwd_packet_length_min': 999999
 })
 
 print(f"\n📡 SNIFFER V2 (Aggressive Aggregation) ON: {INTERFACE_NAME}")
@@ -61,7 +63,13 @@ def extract_features(packet):
         # 3. עדכון הסטטיסטיקה (מצטבר!)
         flow = current_flows[flow_key]
         flow['packet_count'] += 1
-        flow['total_bytes'] += len(packet)
+        pkt_len = len(packet)
+        flow['total_bytes'] += pkt_len
+        
+        if pkt_len > flow['fwd_packet_length_max']:
+            flow['fwd_packet_length_max'] = pkt_len
+        if pkt_len < flow['fwd_packet_length_min']:
+            flow['fwd_packet_length_min'] = pkt_len
         
         # עדכון דגלים
         flow['syn_count'] += flags['S']
@@ -84,6 +92,9 @@ def extract_features(packet):
             'Flow Duration': duration_micro,
             'Total Fwd Packets': flow['packet_count'], 
             'Total Length of Fwd Packets': flow['total_bytes'],
+            'Fwd Packet Length Max': flow['fwd_packet_length_max'],
+            'Fwd Packet Length Min': flow['fwd_packet_length_min'] if flow['fwd_packet_length_min'] != 999999 else pkt_len,
+            'Fwd Packet Length Mean': flow['total_bytes'] / flow['packet_count'],
             'Flow Bytes/s': flow['total_bytes'] / duration,
             'Flow Packets/s': flow['packet_count'] / duration,
             'SYN Flag Count': flow['syn_count'],
@@ -91,8 +102,7 @@ def extract_features(packet):
             'RST Flag Count': flow['rst_count'],
             'PSH Flag Count': flow['psh_count'],
             'ACK Flag Count': flow['ack_count'],
-            'URG Flag Count': flow['urg_count'],
-            'Destination Port': dst_port
+            'URG Flag Count': flow['urg_count']
         }
         
         # 5. בדיקה מול המודל
