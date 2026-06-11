@@ -66,7 +66,19 @@ class IDSEngine:
         row_2d_l1 = row_l1.reshape(1, -1)
 
         try:
-            l1_pred = int(self.l1_model.predict(row_2d_l1)[0])
+            # Predict probability instead of a hard class (0 or 1)
+            # This allows us to lower the threshold for "Suspicious"
+            if hasattr(self.l1_model, "predict_proba"):
+                proba = self.l1_model.predict_proba(row_2d_l1)[0]
+                # Index 1 corresponds to class 1 (Suspicious)
+                # If probability of Suspicious > 20%, pass to Layer 2
+                if len(proba) > 1 and proba[1] > 0.20:
+                    l1_pred = 1
+                else:
+                    l1_pred = 0
+            else:
+                l1_pred = int(self.l1_model.predict(row_2d_l1)[0])
+                
             if l1_pred == 0:
                 # Normal Traffic -> Stop here and return
                 return {
