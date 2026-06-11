@@ -30,8 +30,8 @@ class IDSEngine:
         self._feature_index_l1 = {name: i for i, name in enumerate(self.l1_expected_features)}
         
         # --- 2. Load Layer 2 (Deep Analysis) ---
-        model_file = 'lightgbm_model.pkl'
-        feat_file = 'lightgbm_features.pkl'
+        model_file = 'layer2_model.pkl'
+        feat_file = 'layer2_features.pkl'
 
         model_path = os.path.join(base_dir, 'models', model_file)
         features_path = os.path.join(base_dir, 'models', feat_file)
