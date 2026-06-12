@@ -11,8 +11,7 @@ ATTACK_LABELS = {
     1: 'Brute Force',
     2: 'DDoS',
     3: 'DoS',
-    4: 'Normal Traffic',
-    5: 'Port Scanning',
-    6: 'Web Attacks'
+    4: 'Port Scanning',
+    5: 'Web Attacks'
 }
 

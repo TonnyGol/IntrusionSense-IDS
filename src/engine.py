@@ -11,6 +11,7 @@ warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 class IDSEngine:
     def __init__(self):
+        self.l1_threshold = 0.20
         base_dir = os.path.dirname(os.path.abspath(__file__))
         
         # --- 1. Load Layer 1 (Gatekeeper) ---
@@ -71,8 +72,8 @@ class IDSEngine:
             if hasattr(self.l1_model, "predict_proba"):
                 proba = self.l1_model.predict_proba(row_2d_l1)[0]
                 # Index 1 corresponds to class 1 (Suspicious)
-                # If probability of Suspicious > 20%, pass to Layer 2
-                if len(proba) > 1 and proba[1] > 0.20:
+                # If probability of Suspicious > threshold, pass to Layer 2
+                if len(proba) > 1 and proba[1] > self.l1_threshold:
                     l1_pred = 1
                 else:
                     l1_pred = 0

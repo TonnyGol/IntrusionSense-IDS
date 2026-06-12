@@ -172,6 +172,29 @@ class IDSDashboard:
         tk.Label(status_frame, text="Version 1.0.0", font=("Segoe UI", 8),
                  bg=COLORS['bg_sidebar'], fg=COLORS['text_dim']).pack(anchor=tk.W, pady=(10, 0))
 
+        # ── Threshold Slider ────────────────────────────────────
+        slider_frame = tk.Frame(sb, bg=COLORS['bg_sidebar'])
+        slider_frame.pack(fill=tk.X, padx=15, pady=(20, 15))
+
+        tk.Label(slider_frame, text="Layer 1 Threshold:", font=("Segoe UI", 10, "bold"),
+                 bg=COLORS['bg_sidebar'], fg=COLORS['text_secondary']).pack(anchor=tk.W, pady=(0, 5))
+
+        self.threshold_var = tk.DoubleVar(value=0.20)
+        
+        def on_threshold_change(val):
+            # Update the value in sniffer_service -> engine
+            if self.sniffer_service and hasattr(self.sniffer_service, 'engine'):
+                self.sniffer_service.engine.l1_threshold = float(val)
+                
+        self.slider = tk.Scale(slider_frame, from_=0.01, to=0.99, resolution=0.01, 
+                               orient=tk.HORIZONTAL, variable=self.threshold_var, 
+                               command=on_threshold_change,
+                               bg=COLORS['bg_sidebar'], fg=COLORS['accent_cyan'],
+                               activebackground=COLORS['accent_cyan'],
+                               highlightthickness=0, bd=0, sliderrelief=tk.RAISED,
+                               troughcolor=COLORS['border_light'])
+        self.slider.pack(fill=tk.X)
+
     def _create_nav_button(self, parent, icon, text, active=False):
         bg = COLORS['active_nav'] if active else COLORS['bg_sidebar']
         fg = COLORS['accent_cyan'] if active else COLORS['text_secondary']
