@@ -9,3 +9,9 @@ ipykernel
 matplotlib
 seaborn
 lightgbm
+sqlalchemy
+pymysql
+fastapi
+uvicorn
+websockets
+pydantic

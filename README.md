@@ -21,6 +21,23 @@ To run this project, particularly on Windows, you must have the following instal
    - Download Npcap from [npcap.com](https://npcap.com/).
    - **IMPORTANT:** During the installation, you **MUST** check the box that says: **"Install Npcap in WinPcap API-compatible Mode"**.
 
+## Database Setup
+
+This project uses MySQL for storing historical logs, alerts, and user roles. To set it up locally:
+
+1. **Install MySQL Server and MySQL Workbench**:
+   - Download the MySQL Installer from [mysql.com](https://dev.mysql.com/downloads/installer/).
+   - During installation, choose the "Developer Default" or "Server only" setup. Make sure to install MySQL Workbench as well.
+
+2. **Configure the Database**:
+   - Open MySQL Workbench and connect to your local MySQL Server as `root`.
+   - The default configuration expects the root password to be `1234` (you can change this in `src/config.py`).
+   - Create a new database schema named `intrusionsense`:
+     ```sql
+     CREATE DATABASE intrusionsense;
+     ```
+   - The application uses SQLAlchemy and will automatically create the required tables (`Users`, `Rules`, `Alerts`, `TrafficLogs`) on startup.
+
 ## Installation
 
 1. Clone the repository to your local machine:

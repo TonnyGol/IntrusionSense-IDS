@@ -1,0 +1,14 @@
+[
+    {
+        "id": "R-1782128376938",
+        "name": "Aggressive Port Scan Limit",
+        "description": "Triggers when a source sends an unusually high volume of packets, which often indicates an aggressive port scan.",
+        "action": "Alert High",
+        "status": "active",
+        "logic": {
+            "field": "Packet Count",
+            "condition": "Greater Than",
+            "value": "500"
+        }
+    }
+]

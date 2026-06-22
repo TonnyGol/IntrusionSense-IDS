@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntrusionSense — IDS Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Login View -->
+    <div id="login-view" class="view active">
+        <div class="login-box glass-panel">
+            <div class="brand">
+                <span class="icon">🛡️</span>
+                <span class="text">IntrusionSense</span>
+            </div>
+            <h2>Admin Authentication</h2>
+            
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+            </div>
+            
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+            </div>
+            
+            <div id="login-error" class="error-text"></div>
+            
+            <button id="btn-login" class="btn btn-primary">Login to Command Center</button>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div id="main-layout" class="view">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="brand">
+                <span class="icon">🛡️</span>
+                <span class="text">IntrusionSense</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-target="dashboard-view">
+                    <span class="icon">📊</span>
+                    <span class="text">Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-target="rules-view">
+                    <span class="icon">📝</span>
+                    <span class="text">Rules</span>
+                </a>
+                <a href="#" class="nav-item" data-target="traffic-monitor-view">
+                    <span class="icon">📡</span>
+                    <span class="text">Traffic Monitor</span>
+                </a>
+                <a href="#" class="nav-item" data-target="historical-logs-view">
+                    <span class="icon">📋</span>
+                    <span class="text">Historical Logs</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-settings">
+                    <span class="icon">⚙️</span>
+                    <span class="text">Settings</span>
+                </a>
+            </nav>
+
+            <div class="system-status">
+                <h3>System Status</h3>
+                <div class="status-row">
+                    <span class="label">Sniffer:</span>
+                    <span id="sniffer-status" class="value status-stopped">● Stopped</span>
+                </div>
+                <div class="status-row">
+                    <span class="label">ML Model:</span>
+                    <span id="model-status" class="value status-not-loaded">● Not Loaded</span>
+                </div>
+                <div class="version">Version 1.0.0</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="monitor-status">
+                    <span id="monitor-dot" class="dot status-stopped">●</span>
+                    <span id="monitor-text" class="text status-stopped"> Idle</span>
+                </div>
+                <div class="header-controls">
+                    <div class="clock">
+                        <span class="icon">🕐</span>
+                        <span id="clock-display">00:00:00</span>
+                    </div>
+                    <button id="btn-toggle-sniffer" class="btn btn-start">
+                        ▶ Start Sniffing
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="content-view active">
+                <div class="stat-cards">
+                    <div class="card stat-card accent-cyan">
+                        <div class="label">Total Alerts</div>
+                        <div class="value" id="stat-total">0</div>
+                    </div>
+                    <div class="card stat-card accent-red">
+                        <div class="label">High Severity</div>
+                        <div class="value" id="stat-high">0</div>
+                    </div>
+                    <div class="card stat-card accent-amber">
+                        <div class="label">Medium Severity</div>
+                        <div class="value" id="stat-medium">0</div>
+                    </div>
+                    <div class="card stat-card accent-green">
+                        <div class="label">Low Severity</div>
+                        <div class="value" id="stat-low">0</div>
+                    </div>
+                    <div class="card stat-card accent-blue">
+                        <div class="label">Packets Analyzed</div>
+                        <div class="value" id="stat-pkts">0</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-middle">
+                    <div class="alerts-section">
+                        <div class="section-header">
+                            <h3>Recent Alerts</h3>
+                            <span id="alert-count" class="subtitle">0 alerts</span>
+                        </div>
+                        <div class="card table-container">
+                            <table id="alerts-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Severity</th>
+                                        <th>Source IP</th>
+                                        <th>Destination IP</th>
+                                        <th>Attack Type</th>
+                                        <th>Confidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="empty-state">
+                                        <td colspan="6">No alerts yet — start the sniffer to begin monitoring</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="chart-section">
+                        <div class="section-header">
+                            <h3>Attack Distribution</h3>
+                        </div>
+                        <div class="card chart-container">
+                            <canvas id="attackChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="log-panel">
+                    <div class="log-header">
+                        <span class="icon">⌨</span> Live Log
+                    </div>
+                    <div class="log-content" id="live-log">
+                        <div class="log-entry system">System initialized. Ready to sniff.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rules View -->
+            <div id="rules-view" class="content-view">
+                <div class="view-header">
+                    <h2>Rule Management</h2>
+                </div>
+                <div class="controls-row">
+                    <button id="btn-add-rule" class="btn btn-primary">➕ Add New Rule</button>
+                </div>
+                <div class="card table-container">
+                    <table id="rules-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Action</th>
+                                <th>Status</th>
+                                <th>Target Field</th>
+                                <th>Condition</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rules populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Traffic Monitor View -->
+            <div id="traffic-monitor-view" class="content-view">
+                <div class="view-header">
+                    <h2>Traffic Monitor (Incident Response)</h2>
+                </div>
+                <!-- Implementation for Traffic Monitor -->
+                <div class="traffic-container" style="display: flex; gap: 20px; height: 100%;">
+                    <div class="active-alerts card" style="flex: 1; padding: 15px; display: flex; flex-direction: column;">
+                        <h3>Active Unresolved Alerts</h3>
+                        <ul id="traffic-list" class="log-panel" style="list-style: none; padding: 10px; flex: 1; overflow-y: auto; margin-top: 10px; border: none; cursor: pointer;">
+                        </ul>
+                    </div>
+                    <div class="alert-details card" style="flex: 2; padding: 20px; display: flex; flex-direction: column;">
+                        <h3 id="tm-title" style="margin-bottom: 10px;">Select an alert to view details</h3>
+                        <p id="tm-info" style="white-space: pre-line; color: var(--text-secondary); margin-bottom: 10px;"></p>
+                        <p id="tm-mechanism" style="color: var(--accent-amber); font-style: italic; margin-bottom: 20px;"></p>
+                        <div class="payload-samples" style="flex: 1; display: flex; flex-direction: column;">
+                            <h4 style="margin-bottom: 10px;">Payload Samples:</h4>
+                            <pre id="tm-payload" style="background: var(--log-bg); padding: 10px; flex: 1; overflow-y: auto; color: var(--text-primary); border-radius: 4px; border: 1px solid var(--border);"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historical Logs View -->
+            <div id="historical-logs-view" class="content-view">
+                <div class="view-header">
+                    <h2>Historical Logs</h2>
+                </div>
+                <!-- Implementation for Historical Logs -->
+                <div class="card table-container">
+                    <table id="historical-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Severity</th>
+                                <th>Source IP</th>
+                                <th>Destination IP</th>
+                                <th>Attack Type</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Logs populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -3,3 +3,5 @@ data/processed/custom_normal_traffic.csv
 src/__pycache__/config.cpython-313.pyc
 src/__pycache__/engine.cpython-313.pyc
 src/Interface/__pycache__/sniffer_service.cpython-313.pyc
+__pycache__/
+*.pyc

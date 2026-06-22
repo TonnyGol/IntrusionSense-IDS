@@ -1,0 +1,258 @@
+[
+  {
+    "timestamp": "2026-06-22 13:22:00",
+    "severity": "High",
+    "src_ip": "216.239.32.223:443",
+    "dst_ip": "10.100.102.5:58726",
+    "attack_type": "DoS",
+    "confidence": "60%"
+  },
+  {
+    "timestamp": "2026-06-22 13:22:24",
+    "severity": "High",
+    "src_ip": "10.100.102.2:138",
+    "dst_ip": "10.100.102.255:138",
+    "attack_type": "DoS",
+    "confidence": "86%"
+  },
+  {
+    "timestamp": "2026-06-22 13:22:34",
+    "severity": "High",
+    "src_ip": "10.100.102.5:60840",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Bots",
+    "confidence": "30%"
+  },
+  {
+    "timestamp": "2026-06-22 13:23:29",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:56807",
+    "dst_ip": "142.250.75.193:443",
+    "attack_type": "Brute Force",
+    "confidence": "78%"
+  },
+  {
+    "timestamp": "2026-06-22 13:23:40",
+    "severity": "High",
+    "src_ip": "10.100.102.5:54543",
+    "dst_ip": "34.0.91.93:50005",
+    "attack_type": "Bots",
+    "confidence": "53%"
+  },
+  {
+    "timestamp": "2026-06-22 13:24:25",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:54542",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "40%"
+  },
+  {
+    "timestamp": "2026-06-22 13:24:46",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:51750",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "30%"
+  },
+  {
+    "timestamp": "2026-06-22 13:25:34",
+    "severity": "High",
+    "src_ip": "10.100.102.5:63494",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "DoS",
+    "confidence": "33%"
+  },
+  {
+    "timestamp": "2026-06-22 13:26:48",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:50192",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "33%"
+  },
+  {
+    "timestamp": "2026-06-22 13:27:01",
+    "severity": "High",
+    "src_ip": "216.239.34.223:443",
+    "dst_ip": "10.100.102.5:56827",
+    "attack_type": "DoS",
+    "confidence": "55%"
+  },
+  {
+    "timestamp": "2026-06-22 13:27:01",
+    "severity": "High",
+    "src_ip": "216.239.34.223:443",
+    "dst_ip": "10.100.102.5:56826",
+    "attack_type": "DoS",
+    "confidence": "55%"
+  },
+  {
+    "timestamp": "2026-06-22 13:27:09",
+    "severity": "High",
+    "src_ip": "10.100.102.5:65100",
+    "dst_ip": "34.54.84.110:443",
+    "attack_type": "Bots",
+    "confidence": "47%"
+  },
+  {
+    "timestamp": "2026-06-22 13:27:11",
+    "severity": "High",
+    "src_ip": "216.239.32.223:443",
+    "dst_ip": "10.100.102.5:56810",
+    "attack_type": "DoS",
+    "confidence": "52%"
+  },
+  {
+    "timestamp": "2026-06-22 13:27:32",
+    "severity": "High",
+    "src_ip": "10.100.102.5:55953",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Bots",
+    "confidence": "33%"
+  },
+  {
+    "timestamp": "2026-06-22 13:27:43",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:55953",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "30%"
+  },
+  {
+    "timestamp": "2026-06-22 13:28:07",
+    "severity": "High",
+    "src_ip": "10.100.102.5:62842",
+    "dst_ip": "57.154.63.210:443",
+    "attack_type": "DoS",
+    "confidence": "52%"
+  },
+  {
+    "timestamp": "2026-06-22 13:28:30",
+    "severity": "High",
+    "src_ip": "142.250.75.193:443",
+    "dst_ip": "10.100.102.5:56822",
+    "attack_type": "DoS",
+    "confidence": "54%"
+  },
+  {
+    "timestamp": "2026-06-22 13:28:39",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:62832",
+    "dst_ip": "142.250.75.193:443",
+    "attack_type": "Brute Force",
+    "confidence": "74%"
+  },
+  {
+    "timestamp": "2026-06-22 13:28:40",
+    "severity": "High",
+    "src_ip": "10.100.102.5:63024",
+    "dst_ip": "34.0.91.93:50005",
+    "attack_type": "Bots",
+    "confidence": "53%"
+  },
+  {
+    "timestamp": "2026-06-22 13:28:56",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:64846",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "38%"
+  },
+  {
+    "timestamp": "2026-06-22 13:29:42",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:63025",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "41%"
+  },
+  {
+    "timestamp": "2026-06-22 13:30:40",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:55244",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "35%"
+  },
+  {
+    "timestamp": "2026-06-22 13:38:29",
+    "severity": "High",
+    "src_ip": "142.250.75.193:443",
+    "dst_ip": "10.100.102.5:57915",
+    "attack_type": "DDoS",
+    "confidence": "55%"
+  },
+  {
+    "timestamp": "2026-06-22 13:38:33",
+    "severity": "High",
+    "src_ip": "10.100.102.5:61644",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Bots",
+    "confidence": "33%"
+  },
+  {
+    "timestamp": "2026-06-22 13:38:39",
+    "severity": "High",
+    "src_ip": "10.100.102.5:61644",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "DoS",
+    "confidence": "33%"
+  },
+  {
+    "timestamp": "2026-06-22 13:38:44",
+    "severity": "High",
+    "src_ip": "10.100.102.5:61644",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Bots",
+    "confidence": "33%"
+  },
+  {
+    "timestamp": "2026-06-22 13:38:51",
+    "severity": "High",
+    "src_ip": "10.100.102.5:61644",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Bots",
+    "confidence": "31%"
+  },
+  {
+    "timestamp": "2026-06-22 14:00:20",
+    "severity": "High",
+    "src_ip": "199.203.60.211:443",
+    "dst_ip": "10.100.102.5:61490",
+    "attack_type": "DoS",
+    "confidence": "85%"
+  },
+  {
+    "timestamp": "2026-06-22 14:00:40",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:50793",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "34%"
+  },
+  {
+    "timestamp": "2026-06-22 14:01:18",
+    "severity": "High",
+    "src_ip": "10.100.102.5:62926",
+    "dst_ip": "216.239.38.223:443",
+    "attack_type": "DoS",
+    "confidence": "39%"
+  },
+  {
+    "timestamp": "2026-06-22 14:01:44",
+    "severity": "Medium",
+    "src_ip": "10.100.102.5:57025",
+    "dst_ip": "34.0.85.67:50005",
+    "attack_type": "Brute Force",
+    "confidence": "40%"
+  },
+  {
+    "timestamp": "2026-06-22 14:02:01",
+    "severity": "High",
+    "src_ip": "216.239.34.223:443",
+    "dst_ip": "10.100.102.5:53511",
+    "attack_type": "DoS",
+    "confidence": "56%"
+  }
+]
