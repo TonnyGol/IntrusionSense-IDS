@@ -1,8 +1,6 @@
-# src/Interface/sniffer_service.py
 from scapy.all import sniff, IP, TCP, UDP
 import time
 import numpy as np
-import requests
 from collections import defaultdict
 import re
 import random
@@ -22,10 +20,10 @@ class SnifferService:
         self.dst_port_tracker = defaultdict(lambda: {'timestamps': [], 'src_ips': set()})
         self.reload_rules()
         self.current_flows = {}
-        self.packet_count = 0   # Total packets seen (polled by dashboard)
-        self.idle_threshold = 5.0  # 5 seconds threshold for Idle/Active times
+        self.packet_count = 0   
+        self.idle_threshold = 5.0 
         self.flow_timeout = 15.0   # Seconds before a stale flow is analyzed and cleaned
-        self.predict_every_n = 50  # Predict every N packets in a flow
+        self.predict_every_n = 50  
 
     def reload_rules(self):
         try:
@@ -149,13 +147,13 @@ class SnifferService:
                 try:
                     if unique_ports_10s >= int(r['value']): 
                         match = True
-                        self.port_probe_tracker[(src_ip, dst_ip)]['probes'] = [] # Reset to avoid spam
+                        self.port_probe_tracker[(src_ip, dst_ip)]['probes'] = [] 
                 except ValueError: pass
             elif r['field'] == "Packets to Dest Port / 10s":
                 try:
                     if dst_port_count >= int(r['value']): 
                         match = True
-                        self.dst_port_tracker[(dst_ip, dst_port)]['timestamps'] = [] # Reset to avoid spam
+                        self.dst_port_tracker[(dst_ip, dst_port)]['timestamps'] = [] 
                 except ValueError: pass
                 
             if match:
@@ -178,10 +176,10 @@ class SnifferService:
             'bwd_timestamps': [],
             'fwd_lengths': [],
             'bwd_lengths': [],
-            'fin_flag': 0,    # Boolean: was FIN flag seen? (0 or 1)
-            'psh_flag': 0,    # Boolean: was PSH flag seen? (0 or 1)
-            'ack_flag': 0,    # Boolean: was ACK flag seen? (0 or 1)
-            'syn_flag': 0,    # Boolean: was SYN flag seen? (0 or 1)
+            'fin_flag': 0,    
+            'psh_flag': 0,    
+            'ack_flag': 0,    
+            'syn_flag': 0,    
             'act_data_pkt_fwd': 0,
             'idle_times': [],
             'active_times': [],
@@ -223,7 +221,6 @@ class SnifferService:
             flow = self.current_flows[flow_key]
             total_packets = len(flow['fwd_lengths']) + len(flow['bwd_lengths'])
             
-            # Only predict if there's enough data (at least 2 packets)
             if total_packets >= 2:
                 self._predict_and_handle(flow_key, flow, now)
             
@@ -254,9 +251,9 @@ class SnifferService:
 
             # --- Evaluate DB Drop/Block Rules ---
             if self.should_drop_packet(src_ip, dst_ip, src_port, dst_port, protocol):
-                return # Silently ignore!
+                return 
 
-            # --- Flow key: 5-tuple aggregation matching training data ---
+            # --- Flow key: 5-tuple aggregation to match training data ---
             flow_key_fwd = (src_ip, dst_ip, src_port, dst_port, protocol)
             flow_key_bwd = (dst_ip, src_ip, dst_port, src_port, protocol)
             
@@ -276,7 +273,7 @@ class SnifferService:
             now = time.time()
             flow['last_packet_time'] = now
 
-            # --- Packet length: payload only (matches CICFlowMeter) ---
+            # --- Packet length: payload only (matches CICFlowMeter dataset was created with) ---
             pkt_len = len(packet[IP].payload.payload)
             
             if packet.haslayer('Raw'):
@@ -316,7 +313,7 @@ class SnifferService:
             total_packets = len(flow['fwd_lengths']) + len(flow['bwd_lengths'])
             packets_since_last = total_packets - flow['last_predicted_at']
             
-            # --- Prediction trigger: every N packets, or on FIN/RST termination ---
+            # --- Prediction trigger ---
             if packets_since_last >= self.predict_every_n or is_fin_or_rst:
                 if total_packets >= 2:
                     self._predict_and_handle(flow_key, flow, now)
@@ -333,7 +330,7 @@ class SnifferService:
                 self._cleanup_stale_flows(now)
 
         except Exception as e:
-            pass # Keep it fast, ignore individual packet failures
+            pass # ignore individual packet failures
 
     def _predict_and_handle(self, flow_key, flow, now):
         """Extract features from a flow, run prediction, and handle the result."""
@@ -395,9 +392,9 @@ class SnifferService:
             'Packet Length Mean': np.mean(all_lens),
             'Packet Length Std': np.std(all_lens),
             'Packet Length Variance': np.var(all_lens),
-            'FIN Flag Count': flow['fin_flag'],    # Boolean 0/1
-            'PSH Flag Count': flow['psh_flag'],    # Boolean 0/1
-            'ACK Flag Count': flow['ack_flag'],    # Boolean 0/1
+            'FIN Flag Count': flow['fin_flag'],    
+            'PSH Flag Count': flow['psh_flag'],    
+            'ACK Flag Count': flow['ack_flag'],    
             'Average Packet Size': np.mean(all_lens) if len(all_lens) > 0 else 0,
             'Subflow Fwd Bytes': np.sum(fwd_lens),
             'act_data_pkt_fwd': flow['act_data_pkt_fwd'],
@@ -411,13 +408,13 @@ class SnifferService:
 
         # First try the DB rules engine
         result = self._evaluate_db_rules(flow_key, flow, features)
-        rule_triggered_msg = "Machine Learning Model Analysis"
+        rule_triggered_msg = "Rule Engine Analysis"
         
-        # If no heuristic matched, fall back to the ML model
+        # If no rules matched, fall back to the ML model
         if result is None:
             result = self.engine.process_and_predict(features)
         else:
-            rule_triggered_msg = result.get('rule_triggered', 'Heuristic Match')
+            rule_triggered_msg = result.get('rule_triggered', 'Rule Match')
 
 
         if result['is_threat']:

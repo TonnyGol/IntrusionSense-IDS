@@ -1,4 +1,3 @@
-# src/net_utils.py
 # Shared network utilities for attack simulation and dashboard
 import socket
 import psutil

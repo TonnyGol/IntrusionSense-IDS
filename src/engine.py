@@ -1,12 +1,9 @@
-# src/engine.py
 import os
 import warnings
 import joblib
 import numpy as np
 from config import ATTACK_LABELS
 
-# Suppress sklearn warning about feature names — we use NumPy arrays
-# for performance but maintain correct feature order via _feature_index
 warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 class IDSEngine:
@@ -31,23 +28,20 @@ class IDSEngine:
         self._feature_index_l1 = {name: i for i, name in enumerate(self.l1_expected_features)}
         
         # --- 2. Load Layer 2 (Deep Analysis) ---
-        model_file = 'layer2_model.pkl'
-        feat_file = 'layer2_features.pkl'
+        l2_model_path = os.path.join(base_dir, 'models', 'layer2_model.pkl')
+        l2_features_path = os.path.join(base_dir, 'models', 'layer2_features.pkl')
 
-        model_path = os.path.join(base_dir, 'models', model_file)
-        features_path = os.path.join(base_dir, 'models', feat_file)
-
-        print(f"Loading Layer 2 model from: {model_path}")
+        print(f"Loading Layer 2 model from: {l2_model_path}")
         try:
-            self.model = joblib.load(model_path)
-            self.expected_features = joblib.load(features_path)
-            print(f"[OK] Layer 2 loaded. Expecting {len(self.expected_features)} features.")
+            self.l2_model = joblib.load(l2_model_path)
+            self.l2_expected_features = joblib.load(l2_features_path)
+            print(f"[OK] Layer 2 loaded. Expecting {len(self.l2_expected_features)} features.")
         except FileNotFoundError:
             print("[ERROR] Layer 2 files not found in 'src/models/'.")
             raise
 
-        self._template_l2 = np.zeros(len(self.expected_features), dtype=np.float64)
-        self._feature_index_l2 = {name: i for i, name in enumerate(self.expected_features)}
+        self._template_l2 = np.zeros(len(self.l2_expected_features), dtype=np.float64)
+        self._feature_index_l2 = {name: i for i, name in enumerate(self.l2_expected_features)}
 
     def process_and_predict(self, incoming_data_row):
         """
@@ -105,7 +99,7 @@ class IDSEngine:
         row_2d_l2 = row_l2.reshape(1, -1)
 
         try:
-            proba = self.model.predict_proba(row_2d_l2)[0]
+            proba = self.l2_model.predict_proba(row_2d_l2)[0]
             pred_index = int(np.argmax(proba))
             confidence = float(proba[pred_index])
             

@@ -55,8 +55,7 @@ def trigger_port_scan():
     print("[*] Triggering Port Scan (Scanning 15 unique ports via UDP)...")
     
     # We use UDP to easily blast packets without needing handshakes or OS responses.
-    # We send 55 packets to each port to force the IDS to hit its prediction threshold
-    # immediately instead of waiting for the connection to time out.
+    # We send 55 packets to each port to force the IDS to hit its prediction threshold.
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     for port in range(8000, 8015):
         for _ in range(55):
@@ -73,8 +72,7 @@ def trigger_port_scan():
 def trigger_dos():
     print("[*] Triggering DoS (Sending 350 rapid sequential connection attempts)...")
     
-    # We use a single loop rather than 350 threads to avoid hitting OS socket limits,
-    # which can silently drop our connections before they are even sent to the network.
+    # Use a single loop rather than 350 threads to avoid hitting OS socket limits.
     for i in range(350):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -84,7 +82,7 @@ def trigger_dos():
         except Exception:
             pass
         if i % 50 == 0:
-            time.sleep(0.01) # Small breather
+            time.sleep(0.01) 
             
     print("[+] 350 connection attempts made! Check your dashboard for DoS alert.\n")
 

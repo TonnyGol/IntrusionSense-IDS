@@ -36,7 +36,7 @@ def log_traffic_and_alert(src_ip, dst_ip, attack_type, severity, confidence, rul
     # 1. Create the traffic log
     new_log = TrafficLog(SourceIP=src_ip, DestIP=dst_ip)
     session.add(new_log)
-    session.flush() # Flush to get the new_log.LogID before committing
+    session.flush() 
 
     # 2. Create the associated alert
     new_alert = Alert(
@@ -51,6 +51,5 @@ def log_traffic_and_alert(src_ip, dst_ip, attack_type, severity, confidence, rul
     return new_alert
 
 if __name__ == "__main__":
-    print("This file contains example queries. Call functions to test them.")
-    # Example usage:
-    # get_all_alerts_with_details()
+    # This file contains example queries. Call functions to test them.
+    pass

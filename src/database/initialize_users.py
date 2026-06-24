@@ -1,7 +1,3 @@
-"""
-Seed script to insert default users into the intrusionsense database with hashed passwords.
-Run this after the database is initialized.
-"""
 import sys
 import os
 import hashlib
@@ -15,16 +11,12 @@ from database.connection import SessionLocal, engine, Base
 from database.models import User
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt."""
-    # Use SHA256 hex digest so it matches the dashboard's verification
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 def seed_users():
-    """Insert default users with hashed passwords."""
     session = SessionLocal()
     
     try:
-        # Check if users already exist
         existing_admin = session.query(User).filter_by(Username='admin_root').first()
         if existing_admin:
             print("❌ Users already exist in the database. Skipping seeding.")

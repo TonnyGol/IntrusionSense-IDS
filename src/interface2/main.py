@@ -4,7 +4,6 @@ import json
 import asyncio
 from typing import List, Dict, Any
 
-# Path magic to import from src and src/Interface
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(current_dir)
 sys.path.append(src_dir)
@@ -22,12 +21,10 @@ import config
 
 app = FastAPI(title="IntrusionSense SPA Backend")
 
-# Configuration
 INTERFACE_NAME = get_active_interface_name()
 RULES_FILE = os.path.join(current_dir, 'rules.json')
 HIST_LOGS_FILE = os.path.join(current_dir, 'historical_logs.json')
 
-# Global State
 sniffer_service = None
 is_sniffing = False
 connected_clients: List[WebSocket] = []
@@ -55,8 +52,6 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 def sniffer_log_callback(message, details=None):
-    # This is called from the sniffer background thread
-    # We need to schedule it to be sent over websockets
     loop = asyncio.get_event_loop()
     
     if "ALERT!" in message:
@@ -77,7 +72,6 @@ def sniffer_log_callback(message, details=None):
                 "details": details or {},
                 "message": message
             }
-            # Schedule the broadcast in the event loop
             asyncio.run_coroutine_threadsafe(manager.broadcast(alert_data), loop)
         except (IndexError, ValueError):
             asyncio.run_coroutine_threadsafe(manager.broadcast({"type": "log", "message": message, "level": "warning"}), loop)
@@ -112,7 +106,6 @@ async def start_sniffer():
         return {"success": True, "message": "Already sniffing"}
     try:
         sniffer_service = SnifferService(INTERFACE_NAME, sniffer_log_callback)
-        # Assuming the sniffer starts its own thread or runs asynchronously
         import threading
         t = threading.Thread(target=sniffer_service.start)
         t.daemon = True
@@ -169,11 +162,10 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            # In case client sends something
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# Mount static files
+
 static_dir = os.path.join(current_dir, 'static')
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
