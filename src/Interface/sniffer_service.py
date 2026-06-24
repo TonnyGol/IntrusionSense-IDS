@@ -4,8 +4,11 @@ import time
 import numpy as np
 import requests
 from collections import defaultdict
+import re
+import random
 from engine import IDSEngine
-from heuristic_engine import HeuristicEngine
+from database.connection import SessionLocal
+from database.models import Rule
 
 class SnifferService:
     def __init__(self, interface_name, log_callback):
@@ -13,13 +16,156 @@ class SnifferService:
         self.log_callback = log_callback
         self.running = False
         self.engine = IDSEngine()
-        self.heuristic_engine = HeuristicEngine()
+        self.db_rules = []
+        self.ip_connection_tracker = defaultdict(list)
+        self.port_probe_tracker = defaultdict(lambda: {'probes': []})
+        self.dst_port_tracker = defaultdict(lambda: {'timestamps': [], 'src_ips': set()})
+        self.reload_rules()
         self.current_flows = {}
         self.packet_count = 0   # Total packets seen (polled by dashboard)
         self.idle_threshold = 5.0  # 5 seconds threshold for Idle/Active times
         self.flow_timeout = 15.0   # Seconds before a stale flow is analyzed and cleaned
         self.predict_every_n = 50  # Predict every N packets in a flow
 
+    def reload_rules(self):
+        try:
+            with SessionLocal() as session:
+                active_rules = session.query(Rule).filter_by(IsActive=True).all()
+                parsed_rules = []
+                for r in active_rules:
+                    if not r.ConditionText: continue
+                    text = r.ConditionText.strip()
+                    
+                    field = None
+                    value = ""
+                    for known_field in ["Source IP", "Dest IP", "Port", "Protocol", "Packet Count", "Payload Regex", "Connection Attempts / min", "Unique Ports Scanned / 10s", "Packets to Dest Port / 10s"]:
+                        if text.startswith(known_field):
+                            field = known_field
+                            value = text[len(known_field):].strip()
+                            break
+                    
+                    if field:
+                        parsed_rules.append({
+                            "name": r.RuleName,
+                            "field": field,
+                            "value": value,
+                            "action": r.Severity
+                        })
+                self.db_rules = parsed_rules
+        except Exception as e:
+            print(f"Error loading DB rules: {e}")
+
+    def should_drop_packet(self, src_ip, dst_ip, src_port, dst_port, protocol):
+        if not self.db_rules: return False
+        proto_str = "TCP" if protocol == 6 else "UDP" if protocol == 17 else str(protocol)
+        
+        for r in self.db_rules:
+            if r['action'] != "Drop / Block":
+                continue
+            match = False
+            if r['field'] == "Source IP" and r['value'] == src_ip: match = True
+            elif r['field'] == "Dest IP" and r['value'] == dst_ip: match = True
+            elif r['field'] == "Port" and str(r['value']) in (str(src_port), str(dst_port)): match = True
+            elif r['field'] == "Protocol" and r['value'].upper() == proto_str: match = True
+            if match: return True
+        return False
+
+    def track_connection(self, src_ip):
+        now = time.time()
+        time_window = 60
+        self.ip_connection_tracker[src_ip].append(now)
+        self.ip_connection_tracker[src_ip] = [t for t in self.ip_connection_tracker[src_ip] if now - t <= time_window]
+
+    def _trim_old_entries(self, entries, cutoff):
+        return [entry for entry in entries if entry[1] >= cutoff]
+
+    def _update_port_probe_tracker(self, src_ip, dst_ip, dst_port, now):
+        key = (src_ip, dst_ip)
+        info = self.port_probe_tracker[key]
+        info['probes'].append((dst_port, now))
+        window = 60.0
+        cutoff = now - window
+        info['probes'] = self._trim_old_entries(info['probes'], cutoff)
+        return info
+
+    def _update_dst_port_tracker(self, dst_ip, dst_port, src_ip, now):
+        key = (dst_ip, dst_port)
+        info = self.dst_port_tracker[key]
+        info['timestamps'].append(now)
+        info['src_ips'].add(src_ip)
+        window = 10.0
+        cutoff = now - window
+        info['timestamps'] = [t for t in info['timestamps'] if t >= cutoff]
+        return info
+
+    def _evaluate_db_rules(self, flow_key, flow, features):
+        src_ip, dst_ip, src_port, dst_port, protocol = flow_key
+        now = time.time()
+        
+        total_packets = len(flow['fwd_lengths']) + len(flow['bwd_lengths'])
+        
+        pp = self._update_port_probe_tracker(src_ip, dst_ip, dst_port, now)
+        unique_ports_10s = len(set([p for p, t in pp['probes'] if t >= now - 10]))
+        
+        dp = self._update_dst_port_tracker(dst_ip, dst_port, src_ip, now)
+        dst_port_count = len(dp['timestamps'])
+        
+        if not self.db_rules:
+            return None
+            
+        proto_str = "TCP" if protocol == 6 else "UDP" if protocol == 17 else str(protocol)
+        
+        for r in self.db_rules:
+            if r['action'] == "Drop / Block":
+                continue
+                
+            match = False
+            rule_msg = f"Custom Rule: {r['name']}"
+            
+            if r['field'] == "Source IP" and r['value'] == src_ip: match = True
+            elif r['field'] == "Dest IP" and r['value'] == dst_ip: match = True
+            elif r['field'] == "Port" and str(r['value']) in (str(src_port), str(dst_port)): match = True
+            elif r['field'] == "Protocol" and r['value'].upper() == proto_str: match = True
+            elif r['field'] == "Packet Count":
+                try:
+                    if total_packets >= int(r['value']): match = True
+                except ValueError: pass
+            elif r['field'] == "Payload Regex":
+                try:
+                    pattern = re.compile(r['value'])
+                    for payload in flow.get('payload_samples', []):
+                        if pattern.search(payload.decode('utf-8', errors='ignore')):
+                            match = True
+                            break
+                except Exception: pass
+            elif r['field'] == "Connection Attempts / min":
+                try:
+                    attempts = sum(1 for t in self.ip_connection_tracker[src_ip] if now - t <= 60)
+                    if attempts >= int(r['value']): 
+                        match = True
+                        self.ip_connection_tracker[src_ip] = [] # Reset to avoid spam
+                except ValueError: pass
+            elif r['field'] == "Unique Ports Scanned / 10s":
+                try:
+                    if unique_ports_10s >= int(r['value']): 
+                        match = True
+                        self.port_probe_tracker[(src_ip, dst_ip)]['probes'] = [] # Reset to avoid spam
+                except ValueError: pass
+            elif r['field'] == "Packets to Dest Port / 10s":
+                try:
+                    if dst_port_count >= int(r['value']): 
+                        match = True
+                        self.dst_port_tracker[(dst_ip, dst_port)]['timestamps'] = [] # Reset to avoid spam
+                except ValueError: pass
+                
+            if match:
+                return {
+                    'is_threat': True,
+                    'label': r['name'] or 'Custom Rule',
+                    'confidence': round(random.uniform(0.88, 0.95), 4),
+                    'rule_triggered': rule_msg
+                }
+        return None
 
     def _create_new_flow(self, initiator_ip):
         """Create a new flow entry. The initiator_ip is the 'forward' direction."""
@@ -107,7 +253,7 @@ class SnifferService:
                 flags = ""
 
             # --- Evaluate DB Drop/Block Rules ---
-            if self.heuristic_engine.should_drop_packet(src_ip, dst_ip, src_port, dst_port, protocol):
+            if self.should_drop_packet(src_ip, dst_ip, src_port, dst_port, protocol):
                 return # Silently ignore!
 
             # --- Flow key: 5-tuple aggregation matching training data ---
@@ -124,7 +270,7 @@ class SnifferService:
                 flow_key = flow_key_fwd
                 direction = "fwd"
                 self.current_flows[flow_key] = self._create_new_flow(initiator_ip=src_ip)
-                self.heuristic_engine.track_connection(src_ip)
+                self.track_connection(src_ip)
             
             flow = self.current_flows[flow_key]
             now = time.time()
@@ -263,8 +409,8 @@ class SnifferService:
             'Idle Min': np.min(idle_times)
         }
 
-        # First try the heuristic engine
-        result = self.heuristic_engine.evaluate_flow(flow_key, flow, features)
+        # First try the DB rules engine
+        result = self._evaluate_db_rules(flow_key, flow, features)
         rule_triggered_msg = "Machine Learning Model Analysis"
         
         # If no heuristic matched, fall back to the ML model
