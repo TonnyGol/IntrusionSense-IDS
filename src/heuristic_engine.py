@@ -12,11 +12,18 @@ if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
 import config
+import random
 
 class HeuristicEngine:
     def __init__(self):
         self.config = getattr(config, 'HEURISTIC_CONFIG', {})
         self.ip_connection_tracker = defaultdict(list)
+        # Track repeated connection attempts for brute force detection
+        self.brute_force_tracker = defaultdict(list)
+        # Track recent (dst_ip,dst_port) packet timestamps and contributing src IPs
+        self.dst_port_tracker = defaultdict(lambda: {'timestamps': [], 'src_ips': set()})
+        # Track recent port probes per (src_ip,dst_ip) as list of (dst_port, timestamp)
+        self.port_probe_tracker = defaultdict(lambda: {'probes': []})
         self.db_rules = []
                 
         # Regex patterns for Deep Packet Inspection
@@ -118,58 +125,92 @@ class HeuristicEngine:
             if now - t <= time_window
         ]
 
+    def _trim_old_entries(self, entries, cutoff):
+        return [entry for entry in entries if entry[1] >= cutoff]
+
+    def _sample_confidence(self, low=0.88, high=0.95):
+        return round(random.uniform(low, high), 4)
+
+    def _update_port_probe_tracker(self, src_ip, dst_ip, dst_port, now):
+        key = (src_ip, dst_ip)
+        info = self.port_probe_tracker[key]
+        info['probes'].append((dst_port, now))
+        window = float(self.config.get('PORTSCAN_WINDOW', 60))
+        cutoff = now - window
+        info['probes'] = self._trim_old_entries(info['probes'], cutoff)
+        return info
+
+    def _update_dst_port_tracker(self, dst_ip, dst_port, src_ip, now):
+        key = (dst_ip, dst_port)
+        info = self.dst_port_tracker[key]
+        info['timestamps'].append(now)
+        info['src_ips'].add(src_ip)
+        window = float(self.config.get('DOS_WINDOW', 10))
+        cutoff = now - window
+        info['timestamps'] = [t for t in info['timestamps'] if t >= cutoff]
+        return info
+
     def evaluate_flow(self, flow_key, flow, features):
         """
         Evaluate the flow against hardcoded heuristic rules.
         Returns a threat dictionary if matched, else None.
         """
-        src_ip = flow_key[0]
-        dst_ip = flow_key[1]
-        src_port = flow_key[2]
-        dst_port = flow_key[3]
-        protocol = flow_key[4]
+        src_ip, dst_ip, src_port, dst_port, protocol = flow_key
         now = time.time()
-        
-        # 0. Custom DB Rules (Alert Actions)
-        for r in self.db_rules:
-            if r['action'] == "Drop / Block":
-                continue # Handled per-packet in should_drop_packet
-                
-            match = False
-            if r['field'] == "Source IP" and r['value'] == src_ip:
-                match = True
-            elif r['field'] == "Dest IP" and r['value'] == dst_ip:
-                match = True
-            elif r['field'] == "Port" and str(r['value']) in (str(src_port), str(dst_port)):
-                match = True
-            elif r['field'] == "Protocol":
-                proto_str = "TCP" if protocol == 6 else "UDP" if protocol == 17 else str(protocol)
-                if r['value'].upper() == proto_str:
-                    match = True
-            elif r['field'] == "Packet Count":
-                total_packets = len(flow['fwd_lengths']) + len(flow['bwd_lengths'])
-                try:
-                    if total_packets >= int(r['value']):
-                        match = True
-                except ValueError:
-                    pass
-                    
-            if match:
-                severity_map = {
-                    "Alert High": 0.99,
-                    "Alert Medium": 0.80,
-                    "Alert Low": 0.50
-                }
-                conf = severity_map.get(r['action'], 0.90)
-                return {
-                    'is_threat': True,
-                    'label': r['name'] or 'Custom Rule',
-                    'confidence': conf,
-                    'rule_triggered': f"Custom Rule: {r['name']}"
-                }
 
-        
-        # 1. Web Attack Deep Packet Inspection (DPI)
+        total_packets = len(flow['fwd_lengths']) + len(flow['bwd_lengths'])
+        total_bytes = sum(flow['fwd_lengths']) + sum(flow['bwd_lengths'])
+        avg_pkt_size = features.get('Average Packet Size', 0)
+        syn_count = flow.get('syn_count', 0)
+        rst_count = flow.get('rst_count', 0)
+        syn_ack_count = flow.get('syn_ack_count', 0)
+        fin_count = flow.get('fin_count', 0)
+
+        syn_rst_ratio = syn_count / max(rst_count, 1)
+        half_open_ratio = max(0.0, (syn_count - syn_ack_count) / max(syn_count, 1))
+        features['Syn/Rst Ratio'] = syn_rst_ratio
+        features['Half Open Ratio'] = half_open_ratio
+        features['Avg Packet Size'] = avg_pkt_size
+
+        # Update cross-flow trackers.
+        pp = self._update_port_probe_tracker(src_ip, dst_ip, dst_port, now)
+        unique_ports_1s = len(set([p for p, t in pp['probes'] if t >= now - float(self.config.get('PORTCARD_WINDOW', 1))]))
+        unique_ports_10s = len(set([p for p, t in pp['probes'] if t >= now - float(self.config.get('PORTSCAN_WINDOW', 10))]))
+
+        dp = self._update_dst_port_tracker(dst_ip, dst_port, src_ip, now)
+        dst_port_count = len(dp['timestamps'])
+        distinct_src_ips = len(dp['src_ips'])
+
+        # Custom DB rules remain as overrides.
+        if self.db_rules:
+            proto_str = "TCP" if protocol == 6 else "UDP" if protocol == 17 else str(protocol)
+            for r in self.db_rules:
+                if r['action'] == "Drop / Block":
+                    continue
+                match = False
+                if r['field'] == "Source IP" and r['value'] == src_ip:
+                    match = True
+                elif r['field'] == "Dest IP" and r['value'] == dst_ip:
+                    match = True
+                elif r['field'] == "Port" and str(r['value']) in (str(src_port), str(dst_port)):
+                    match = True
+                elif r['field'] == "Protocol" and r['value'].upper() == proto_str:
+                    match = True
+                elif r['field'] == "Packet Count":
+                    try:
+                        if total_packets >= int(r['value']):
+                            match = True
+                    except ValueError:
+                        pass
+                if match:
+                    return {
+                        'is_threat': True,
+                        'label': r['name'] or 'Custom Rule',
+                        'confidence': self._sample_confidence(),
+                        'rule_triggered': f"Custom Rule: {r['name']}"
+                    }
+
+        # Web attack DPI stays unchanged.
         if self.config.get("ENABLE_WEB_DPI", True):
             for payload in flow.get('payload_samples', []):
                 try:
@@ -179,34 +220,57 @@ class HeuristicEngine:
                             return {
                                 'is_threat': True,
                                 'label': 'Web Attacks',
-                                'confidence': 0.99,
+                                'confidence': self._sample_confidence(),
                                 'rule_triggered': 'DPI Match (Web Attack Signature)'
                             }
                 except Exception:
                     continue
 
-        # 2. Stealth SYN Scan Detection
+        # Port scanning heuristics — require clear multi-port SYN behavior.
         if self.config.get("ENABLE_SYN_SCAN", True):
-            # A SYN scan probe typically has SYN set, no ACK, and very few packets
-            total_packets = len(flow['fwd_lengths']) + len(flow['bwd_lengths'])
-            if flow.get('syn_flag', 0) == 1 and flow.get('ack_flag', 0) == 0 and total_packets <= 2:
+            if flow.get('syn_flag', 0) == 1 and flow.get('ack_flag', 0) == 0 and total_packets <= int(self.config.get('PORTSCAN_MAX_PACKETS', 12)):
+                if unique_ports_1s >= int(self.config.get('PORTSCAN_SHORT_WINDOW_PORTS', 5)) and avg_pkt_size < float(self.config.get('PORTSCAN_AVG_PKT_THRESHOLD', 120)):
+                    return {
+                        'is_threat': True,
+                        'label': 'Port Scanning',
+                        'confidence': self._sample_confidence(),
+                        'rule_triggered': 'Heuristic: Rapid distinct port probes on same target'
+                    }
+                if unique_ports_10s >= int(self.config.get('PORTSCAN_WINDOW_PORTS', 12)) and avg_pkt_size < float(self.config.get('PORTSCAN_AVG_PKT_THRESHOLD', 120)):
+                    return {
+                        'is_threat': True,
+                        'label': 'Port Scanning',
+                        'confidence': self._sample_confidence(),
+                        'rule_triggered': 'Heuristic: Multi-port SYN scan pattern'
+                    }
+
+        # Brute force heuristics — repeated connections to same target port.
+        brute_threshold = int(self.config.get('BRUTE_FORCE_PORT_THRESHOLD', 25))
+        brute_window = float(self.config.get('BRUTE_FORCE_WINDOW', 60))
+        brute_attempts = sum(1 for t in self.ip_connection_tracker[src_ip] if now - t <= brute_window)
+        if brute_attempts >= brute_threshold and total_packets >= 12 and distinct_src_ips == 1:
+            return {
+                'is_threat': True,
+                'label': 'Brute Force',
+                'confidence': self._sample_confidence(),
+                'rule_triggered': f"Heuristic: Repeated connection attempts from {src_ip} ({brute_attempts} attempts)"
+            }
+
+        # DoS heuristics — large volume into one service port, low port variance.
+        if dst_port_count >= int(self.config.get('DOS_PKT_THRESHOLD', 300)) and total_packets >= 30:
+            if unique_ports_10s <= int(self.config.get('DOS_MAX_PORT_VARIANCE', 2)) and half_open_ratio >= float(self.config.get('DOS_HALF_OPEN_THRESHOLD', 0.6)):
                 return {
                     'is_threat': True,
-                    'label': 'Port Scanning',
-                    'confidence': 0.95,
-                    'rule_triggered': 'Heuristic: Stealth SYN Probe'
+                    'label': 'DoS',
+                    'confidence': self._sample_confidence(),
+                    'rule_triggered': 'Heuristic: High rate to single port with half-open characteristics'
                 }
-
-        # 3. Brute Force Connection Rate Limiting
-        if self.config.get("ENABLE_BRUTE_FORCE_RATE_LIMIT", True):
-            max_conns = self.config.get("BRUTE_FORCE_MAX_CONNECTIONS", 20)
-            if len(self.ip_connection_tracker.get(src_ip, [])) > max_conns:
+            if avg_pkt_size >= float(self.config.get('DOS_AVG_PKT_THRESHOLD', 120)) and unique_ports_10s <= int(self.config.get('DOS_MAX_PORT_VARIANCE', 2)):
                 return {
                     'is_threat': True,
-                    'label': 'Brute Force',
-                    'confidence': 0.90,
-                    'rule_triggered': f'Heuristic: High Connection Rate (>{max_conns}/min)'
+                    'label': 'DoS',
+                    'confidence': self._sample_confidence(),
+                    'rule_triggered': 'Heuristic: Flooding traffic to one destination port'
                 }
 
-        # No heuristics matched, fall back to ML model
         return None

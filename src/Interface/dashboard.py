@@ -609,24 +609,48 @@ class IDSDashboard:
             colors = [ATTACK_COLORS.get(label, palette[i % len(palette)]) for i, label in enumerate(labels)]
                 
             pie_result = self.ax.pie(
-                sizes, colors=colors, autopct='%1.1f%%',
-                startangle=90, textprops={'color': '#ffffff', 'fontsize': 9},
-                radius=1.0
+                sizes, labels=labels, colors=colors, autopct='%1.1f%%',
+                startangle=90, textprops={'color': '#ffffff', 'fontsize': 10},
+                labeldistance=0.95, pctdistance=0.75, radius=1.0,
+                wedgeprops={'linewidth': 1, 'edgecolor': COLORS['bg_card']}
             )
             
-            wedges = pie_result[0]
-            autotexts = pie_result[2] if len(pie_result) >= 3 else []
-            
-            for autotext in autotexts:
-                autotext.set_color('#ffffff')
-                autotext.set_fontsize(9)
-                
-            self.ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1.05, 0.5),
-                           ncol=1, frameon=False, labelcolor=COLORS['text_primary'], fontsize=10)
-                
+            if isinstance(pie_result, tuple):
+                wedges = pie_result[0]
+                autotexts = pie_result[2] if len(pie_result) >= 3 else []
+            else:
+                wedges = getattr(pie_result, 'patches', [])
+                autotexts = getattr(pie_result, 'autotexts', None)
+                if autotexts is None:
+                    autotexts = getattr(pie_result, 'texts', [])
+
+            # Flatten any nested list structures from pie container behavior.
+            flattened_autotexts = []
+            for item in autotexts:
+                if isinstance(item, (list, tuple)):
+                    flattened_autotexts.extend(item)
+                else:
+                    flattened_autotexts.append(item)
+
+            for autotext in flattened_autotexts:
+                if hasattr(autotext, 'set_color'):
+                    autotext.set_color('#ffffff')
+                    autotext.set_fontsize(10)
+
+            from matplotlib.patches import Patch
+            legend_handles = [Patch(facecolor=colors[i], edgecolor=COLORS['bg_card']) for i in range(len(labels))]
+            legend = self.ax.legend(legend_handles, labels, title='Attack Type', loc="lower center",
+                                    bbox_to_anchor=(0.5, 0.95), ncol=min(len(labels), 3), frameon=True,
+                                    framealpha=0.95, edgecolor=COLORS['border'],
+                                    labelcolor='#ffffff', fontsize=10, title_fontsize=11)
+            legend.get_frame().set_facecolor(COLORS['bg_card'])
+            legend.get_title().set_color('#ffffff')
+            for text in legend.get_texts():
+                text.set_color('#ffffff')
+
             self.ax.axis('equal')
             
-        self.fig.subplots_adjust(left=0.05, right=0.55, top=0.95, bottom=0.05)
+        self.fig.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.05)
         self.canvas.draw()
 
     # ─────────────────────────────────────────────────────────
