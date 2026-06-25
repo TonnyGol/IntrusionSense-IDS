@@ -55,6 +55,7 @@ class LoginView:
             
             self._apply_rbac()
             self.dashboard.frame_main.pack(fill=tk.BOTH, expand=True)
+            self.dashboard._save_system_log("Login", f"User {username} logged in", {"user_id": getattr(user, 'UserID', None)})
         else:
             self.lbl_login_err.config(text="Invalid credentials")
 
@@ -75,6 +76,8 @@ class LoginView:
                         pass
 
     def do_logout(self):
+        user_id = getattr(self.dashboard.current_user, 'UserID', None)
+        
         # Reset current user state
         self.dashboard.current_user = None
         self.dashboard.current_role = None
@@ -94,6 +97,7 @@ class LoginView:
             
         # Switch to Dashboard view by default
         self.dashboard._switch_view("Dashboard")
+        self.dashboard._save_system_log("Logout", "User logged out", {"user_id": user_id})
         
         # Clear login form
         self.ent_pass.delete(0, tk.END)

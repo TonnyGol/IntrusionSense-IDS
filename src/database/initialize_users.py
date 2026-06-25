@@ -17,7 +17,7 @@ def seed_users():
     session = SessionLocal()
     
     try:
-        existing_admin = session.query(User).filter_by(Username='admin_root').first()
+        existing_admin = session.query(User).filter_by(Username='admin').first()
         if existing_admin:
             print("❌ Users already exist in the database. Skipping seeding.")
             return
@@ -25,7 +25,7 @@ def seed_users():
         # Define users with clear-text passwords (only in this script)
         users_data = [
             {
-                'username': 'admin_root',
+                'username': 'admin',
                 'email': 'admin@intrusionsense.local',
                 'password': 'admin123',
                 'role': 'Admin'

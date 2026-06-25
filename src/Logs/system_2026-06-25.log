@@ -1,0 +1,4 @@
+2026-06-25 10:48:54 | Login | User admin logged in | {'user_id': 9}
+2026-06-25 10:49:34 | Sniffer started | Started sniffing on interface Ethernet0
+2026-06-25 10:50:23 | Sniffer stopped | Stopped sniffing on interface Ethernet0
+2026-06-25 10:56:42 | Login | User admin logged in | {'user_id': 9}

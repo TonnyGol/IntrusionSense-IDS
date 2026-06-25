@@ -134,11 +134,14 @@ class RulesView:
             }
             if rule_idx is not None:
                 self.dashboard.rules[rule_idx] = new_rule
+                event_name = "Rule edited"
             else:
                 self.dashboard.rules.append(new_rule)
+                event_name = "Rule added"
                 
             self.dashboard._save_rules()
             self.refresh_rules_table()
+            self.dashboard._save_system_log(event_name, f"{event_name} '{new_rule['name']}'", {"rule_id": new_rule.get('id')})
             win.destroy()
 
         tk.Button(win, text="💾 Save Rule", font=self.fonts['btn'], bg=COLORS['accent_green'], fg="black", 
@@ -184,4 +187,5 @@ class RulesView:
             session.rollback()
             
         self.dashboard.rules = [r for r in self.dashboard.rules if r.get("id") != rule_id]
+        self.dashboard._save_system_log("Rule deleted", f"Deleted rule ID {rule_id}", {"rule_id": rule_id})
         self.refresh_rules_table()

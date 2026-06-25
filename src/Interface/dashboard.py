@@ -46,6 +46,8 @@ class IDSDashboard:
         self.stats = {'total': 0, 'High': 0, 'Medium': 0, 'Low': 0}
         self.model_loaded = False
         self.alert_counts = {}
+        self.system_log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Logs")
+        os.makedirs(self.system_log_dir, exist_ok=True)
         
         self.historical_logs = []
         self._load_historical_logs()
@@ -172,6 +174,19 @@ class IDSDashboard:
             self.log_text.see(tk.END)
             self.log_text.configure(state=tk.DISABLED)
 
+    def _save_system_log(self, event, message, details=None):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        file_name = f"system_{datetime.now().strftime('%Y-%m-%d')}.log"
+        file_path = os.path.join(self.system_log_dir, file_name)
+        try:
+            with open(file_path, "a", encoding="utf-8") as f:
+                line = f"{timestamp} | {event} | {message}"
+                if details:
+                    line += f" | {details}"
+                f.write(line + "\n")
+        except Exception as e:
+            print(f"Error writing system log: {e}")
+
     def _poll_packets(self):
         if self.sniffer_service and self.is_sniffing:
             self.packets_analyzed = self.sniffer_service.packet_count
@@ -189,7 +204,10 @@ class IDSDashboard:
             self.lbl_alert_count.configure(text=f"{self.stats['total']} alerts")
 
     def _add_alert(self, src_ip, dst_ip, attack_type, confidence_str, details=None):
-        severity = SEVERITY_MAP.get(attack_type, "Medium")
+        if attack_type and attack_type.lower().startswith("web"):
+            severity = "Low"
+        else:
+            severity = SEVERITY_MAP.get(attack_type, "Medium")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if hasattr(self, 'lbl_empty'):
@@ -275,6 +293,7 @@ class IDSDashboard:
             self.lbl_monitor_dot.configure(fg=COLORS['text_dim'])
             self.lbl_monitor_text.configure(text=" Idle", fg=COLORS['text_dim'])
             self._log("Sniffer stopped.\n", "warning")
+            self._save_system_log("Sniffer stopped", f"Stopped sniffing on interface {INTERFACE_NAME}")
         else:
             try:
                 self.sniffer_service = SnifferService(INTERFACE_NAME, self.sniffer_log_callback)
@@ -291,6 +310,7 @@ class IDSDashboard:
                 self.lbl_monitor_dot.configure(fg=COLORS['accent_green'])
                 self.lbl_monitor_text.configure(text=" Monitoring", fg=COLORS['accent_green'])
                 self._poll_packets()
+                self._save_system_log("Sniffer started", f"Started sniffing on interface {INTERFACE_NAME}")
             except Exception as e:
                 self._log(f"Failed to start: {e}\n", "alert")
                 self.lbl_model_status.configure(text="● Error", fg=COLORS['accent_red'])
