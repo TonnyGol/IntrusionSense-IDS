@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 # Import Base from connection
-from database.connection import Base
+from database.connection import Base, engine
 
 class User(Base):
     __tablename__ = 'users'
@@ -67,3 +67,6 @@ class Alert(Base):
     associated_log = relationship("TrafficLog", back_populates="alerts")
     triggered_rule = relationship("Rule", back_populates="alerts")
     assignee = relationship("User", back_populates="alerts_assigned")
+
+# create any missing tables now that all models are registered
+Base.metadata.create_all(engine)

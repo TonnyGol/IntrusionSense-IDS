@@ -23,20 +23,21 @@ To run this project, particularly on Windows, you must have the following instal
 
 ## Database Setup
 
-This project uses MySQL for storing historical logs, alerts, and user roles. To set it up locally:
+The database runs in Docker, so MySQL is not installed on your computer.
 
-1. **Install MySQL Server and MySQL Workbench**:
-   - Download the MySQL Installer from [mysql.com](https://dev.mysql.com/downloads/installer/).
-   - During installation, choose the "Developer Default" or "Server only" setup. Make sure to install MySQL Workbench as well.
+1. Install [Docker](https://docs.docker.com/get-started/get-docker/) (Docker Engine on Linux, Docker Desktop on Windows/macOS).
+2. Copy `.env.example` to `.env` in the repo root and set `DB_PASSWORD` to a new strong password. `.env` is gitignored.
+3. Start the database (it creates the `intrusionsense` database and user on first start, and keeps its data in a Docker volume):
+   ```bash
+   docker compose up -d db
+   ```
+4. Create the first admin (prompts for a password; there are no default accounts):
+   ```bash
+   cd src
+   python -m database.create_admin
+   ```
 
-2. **Configure the Database**:
-   - Open MySQL Workbench and connect to your local MySQL Server as `root`.
-   - The default configuration expects the root password to be `1234` (you can change this in `src/config.py`).
-   - Create a new database schema named `intrusionsense`:
-     ```sql
-     CREATE DATABASE intrusionsense;
-     ```
-   - The application uses SQLAlchemy and will automatically create the required tables (`Users`, `Rules`, `Alerts`, `TrafficLogs`) on startup.
+The app uses SQLAlchemy and creates the tables (`Users`, `Rules`, `Alerts`, `TrafficLogs`) on startup.
 
 ## Installation
 

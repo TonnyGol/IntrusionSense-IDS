@@ -1,0 +1,22 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-intrusionsense}
+      MYSQL_USER: ${DB_USER:-intrusionsense}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    # localhost only: the app on the host connects here, nothing else on the network can
+    ports:
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db_data:

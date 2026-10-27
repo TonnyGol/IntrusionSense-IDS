@@ -113,7 +113,7 @@ class RulesView:
 
         tk.Label(win, text="Action:", font=self.fonts['table_header'], bg=COLORS['bg_card'], fg=COLORS['text_primary']).pack(anchor=tk.W, padx=20, pady=(5, 5))
         var_action = tk.StringVar(value=rule.get("action", "Alert High"))
-        ttk.Combobox(win, textvariable=var_action, values=["Alert High", "Alert Medium", "Alert Low", "Drop / Block"], state="readonly").pack(fill=tk.X, padx=20)
+        ttk.Combobox(win, textvariable=var_action, values=["Alert High", "Alert Medium", "Alert Low", "Ignore (allowlist)"], state="readonly").pack(fill=tk.X, padx=20)
 
         tk.Label(win, text="Initial Status:", font=self.fonts['table_header'], bg=COLORS['bg_card'], fg=COLORS['text_primary']).pack(anchor=tk.W, padx=20, pady=(15, 5))
         var_status = tk.StringVar(value=rule.get("status", "active"))

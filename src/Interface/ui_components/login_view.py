@@ -1,5 +1,6 @@
 import tkinter as tk
-import hashlib
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError
 from database.models import User
 from database.connection import session
 from .style_constants import COLORS, get_fonts
@@ -43,11 +44,9 @@ class LoginView:
         username = self.ent_user.get()
         pwd = self.ent_pass.get()
         
-        hashed_pwd = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
-        
         user = session.query(User).filter_by(Username=username).first()
-        
-        if user and user.PasswordHash == hashed_pwd:
+
+        if user and self._password_ok(user.PasswordHash, pwd):
             self.lbl_login_err.config(text="")
             self.dashboard.current_user = user
             self.dashboard.current_role = user.Role
@@ -58,6 +57,14 @@ class LoginView:
             self.dashboard._save_system_log("Login", f"User {username} logged in", {"user_id": getattr(user, 'UserID', None)})
         else:
             self.lbl_login_err.config(text="Invalid credentials")
+
+    @staticmethod
+    def _password_ok(stored_hash, password):
+        # old unsalted SHA-256 hashes raise InvalidHashError and are rejected: an admin must reset them
+        try:
+            return PasswordHasher().verify(stored_hash, password)
+        except (VerificationError, InvalidHashError):
+            return False
 
     def _apply_rbac(self):
         # Hide Settings for Manager and SOC Analyst

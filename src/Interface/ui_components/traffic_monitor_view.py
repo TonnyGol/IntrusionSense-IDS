@@ -78,7 +78,7 @@ class TrafficMonitorView:
                                 relief=tk.FLAT, cursor="hand2", command=lambda: self._handle_alert_action("fp"))
         self.btn_fp.pack(side=tk.LEFT, padx=(0, 10), ipady=4, ipadx=10)
 
-        self.btn_block = tk.Button(actions_frame, text="🚫 Block Source IP", font=self.fonts['btn'], bg=COLORS['btn_stop'], fg="white", 
+        self.btn_block = tk.Button(actions_frame, text="🚩 Flag Source IP", font=self.fonts['btn'], bg=COLORS['btn_stop'], fg="white", 
                                    relief=tk.FLAT, cursor="hand2", command=lambda: self._handle_alert_action("block"))
         self.btn_block.pack(side=tk.RIGHT, ipady=4, ipadx=10)
         
@@ -146,8 +146,8 @@ class TrafficMonitorView:
             alt["status"] = "false_positive"
             self.dashboard._log(f"Alert {alt.get('id', 'N/A')} marked as false positive.", "warning")
         elif action == "block":
-            alt["status"] = "blocked"
-            self.dashboard._log(f"Source IP {alt['src_ip']} blocked.", "alert")
+            alt["status"] = "flagged"
+            self.dashboard._log(f"Source IP {alt['src_ip']} flagged (traffic is not blocked).", "warning")
             
         self.tm_selected_index = None
         self.tm_lbl_title.config(text="Select an alert to view details")

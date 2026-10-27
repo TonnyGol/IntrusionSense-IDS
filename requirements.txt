@@ -14,3 +14,5 @@ fastapi
 uvicorn
 websockets
 pydantic
+pydantic-settings
+argon2-cffi

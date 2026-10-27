@@ -122,7 +122,7 @@ class IDSDashboard:
         tk.Label(win, text="Layer 1 Threshold:", font=("Segoe UI", 10, "bold"), bg=COLORS['bg_card'], fg=COLORS['text_primary']).pack(pady=(20, 5))
 
         if not hasattr(self, 'threshold_var'):
-            self.threshold_var = tk.DoubleVar(value=0.65)
+            self.threshold_var = tk.DoubleVar(value=config.settings.l1_threshold)
         
         def on_threshold_change(val):
             if self.sniffer_service and hasattr(self.sniffer_service, 'engine'):

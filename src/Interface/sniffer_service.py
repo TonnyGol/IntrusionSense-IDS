@@ -3,10 +3,14 @@ import time
 import numpy as np
 from collections import defaultdict
 import re
-import random
 from engine import IDSEngine
 from database.connection import SessionLocal
 from database.models import Rule
+
+# rules with this action suppress matching traffic; they do not block it
+# "Drop / Block" is the old name for the same behaviour, kept so saved rules still load
+IGNORE_ACTIONS = ("Ignore (allowlist)", "Drop / Block")
+
 
 class SnifferService:
     def __init__(self, interface_name, log_callback):
@@ -58,7 +62,7 @@ class SnifferService:
         proto_str = "TCP" if protocol == 6 else "UDP" if protocol == 17 else str(protocol)
         
         for r in self.db_rules:
-            if r['action'] != "Drop / Block":
+            if r['action'] not in IGNORE_ACTIONS:
                 continue
             match = False
             if r['field'] == "Source IP" and r['value'] == src_ip: match = True
@@ -114,7 +118,7 @@ class SnifferService:
         proto_str = "TCP" if protocol == 6 else "UDP" if protocol == 17 else str(protocol)
         
         for r in self.db_rules:
-            if r['action'] == "Drop / Block":
+            if r['action'] in IGNORE_ACTIONS:
                 continue
                 
             match = False
@@ -160,7 +164,7 @@ class SnifferService:
                 return {
                     'is_threat': True,
                     'label': r['name'] or 'Custom Rule',
-                    'confidence': round(random.uniform(0.88, 0.95), 4),
+                    'confidence': None,  # a rule match is not a probability
                     'rule_triggered': rule_msg
                 }
         return None
@@ -249,7 +253,7 @@ class SnifferService:
                 dst_port = packet[UDP].dport
                 flags = ""
 
-            # --- Evaluate DB Drop/Block Rules ---
+            # --- Evaluate DB ignore (allowlist) rules ---
             if self.should_drop_packet(src_ip, dst_ip, src_port, dst_port, protocol):
                 return 
 
@@ -423,7 +427,8 @@ class SnifferService:
 
 
             proto_str = "TCP" if flow_proto == 6 else "UDP" if flow_proto == 17 else str(flow_proto)
-            msg = f"ALERT! [{flow_src_ip}:{flow_src_port}] -> [{flow_dst_ip}:{flow_dst_port}] ({proto_str}) : {label} ({result['confidence']:.0%})\n"
+            conf_text = "rule" if result['confidence'] is None else f"{result['confidence']:.0%}"
+            msg = f"ALERT! [{flow_src_ip}:{flow_src_port}] -> [{flow_dst_ip}:{flow_dst_port}] ({proto_str}) : {label} ({conf_text})\n"
             
             details = {
                 'payloads': flow.get('payload_samples', []),
