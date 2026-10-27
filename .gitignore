@@ -1,7 +1,32 @@
-data/processed/cicids2017_cleaned.csv
-data/processed/custom_normal_traffic.csv
-src/__pycache__/config.cpython-313.pyc
-src/__pycache__/engine.cpython-313.pyc
-src/Interface/__pycache__/sniffer_service.cpython-313.pyc
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Secrets and local config
+.env
+
+# Data and runtime output
+data/
+*.log
+src/Logs/
+src/interface2/historical_logs.json
+src/interface2/rules.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local assistant files
+CLAUDE.md
+goal-prompt.md
