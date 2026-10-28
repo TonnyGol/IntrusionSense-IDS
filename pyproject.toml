@@ -21,7 +21,7 @@ dependencies = [
     "PyMySQL==1.2.3",
     "requests==2.34.2",
     "scapy==2.7.0",
-    "scikit-learn==1.8.0",
+    "scikit-learn==1.9.1",
     "SQLAlchemy==2.1.6",
     "uvicorn==0.54.0",
     "websockets==17.3",  # uvicorn serves /ws (live alerts) only when a WebSocket library is installed
