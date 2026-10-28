@@ -10,6 +10,7 @@ const STRIP_WIDTH = 960;
 const STRIP_HEIGHT = 140;
 const STRIP_GAP = 6;
 const STRIP_HOURS = 24;
+const SENSOR_CONFIG_FILE_NAME = "sensor.conf";
 const SEVERITIES = ["High", "Medium", "Low"];
 const STATUS_LABELS = { active: "Open", acknowledged: "Acknowledged", false_positive: "False positive", resolved: "Resolved" };
 const RULE_FIELDS = [
@@ -465,14 +466,26 @@ function registerSensor() {
     onSubmit: async ({ name }) => { const created = await api("POST", "/api/sensors", { name }); showToken(created); await loadSensors(); } });
 }
 
+function downloadSensorConfig(token) {
+  const file = new Blob([`server=${location.origin}\ntoken=${token}\n`], { type: "text/plain" });
+  const link = el("a", { href: URL.createObjectURL(file), download: SENSOR_CONFIG_FILE_NAME });
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 function showToken({ name, token }) {
-  const command = `INTRUSIONSENSE_SENSOR_TOKEN=${token} intrusionsense sensor --server ${location.origin}`;
+  const windowsCommand = `$env:INTRUSIONSENSE_SENSOR_TOKEN = "${token}"; .\\intrusionsense-sensor-windows-x64.exe --server ${location.origin}`;
+  const linuxCommand = `INTRUSIONSENSE_SENSOR_TOKEN=${token} intrusionsense sensor --server ${location.origin}`;
+  const copyButton = (label, command) => el("button", { type: "button", class: "secondary small", onclick: () => navigator.clipboard.writeText(command).then(() => toast("Copied.")) }, label);
   const box = clear(byId("sensor-token"));
   box.hidden = false;
   box.append(el("strong", {}, `Sensor "${name}" is registered.`),
-    el("p", {}, "Copy this command now. The token is shown only once."),
-    el("pre", {}, command),
-    el("button", { type: "button", class: "secondary small", onclick: () => navigator.clipboard.writeText(command).then(() => toast("Copied.")) }, "Copy command"));
+    el("p", {}, "The token is shown only once. Easiest on Windows: download the file, save it in the same folder as the sensor program, then double-click the program."),
+    el("button", { type: "button", onclick: () => downloadSensorConfig(token) }, `Download ${SENSOR_CONFIG_FILE_NAME}`),
+    el("p", {}, "Or run it from a terminal. Windows PowerShell:"),
+    el("pre", {}, windowsCommand), copyButton("Copy Windows command", windowsCommand),
+    el("p", {}, "Linux or macOS:"),
+    el("pre", {}, linuxCommand), copyButton("Copy Linux command", linuxCommand));
 }
 
 function revokeSensor(sensor) {

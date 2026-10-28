@@ -8,6 +8,15 @@ import signal
 import sys
 import threading
 
+from intrusionsense.sensor_config import (
+    CONFIG_FILE_NAME,
+    SensorConfig,
+    ask_and_save,
+    config_path,
+    load_config,
+    wait_before_window_closes,
+)
+
 log = logging.getLogger("intrusionsense")
 
 SECONDS_PER_MINUTE = 60
@@ -23,6 +32,24 @@ def configure_logging(level: str) -> None:
     logging.basicConfig(level=level.upper(), format=LOG_FORMAT, stream=sys.stdout)
 
 
+def exit_with_message(message: str) -> None:
+    print(message, file=sys.stderr)
+    wait_before_window_closes()
+    sys.exit(1)
+
+
+def resolve_config(args) -> SensorConfig:
+    """Token: environment, sensor.conf, then asked for. Server: --server, sensor.conf, then the default."""
+    path = config_path()
+    stored = load_config(path)
+    token = os.environ.get(TOKEN_ENV_VAR) or stored.token
+    server = args.server or stored.server
+    if not token and sys.stdin and sys.stdin.isatty():
+        asked = ask_and_save(path, server or DEFAULT_SERVER_URL)
+        token, server = asked.token, args.server or asked.server
+    return SensorConfig(server=server or DEFAULT_SERVER_URL, token=token)
+
+
 def run_sensor(args) -> None:
     from intrusionsense.capture import LiveCapture, bpf_filter_excluding, default_interface
     from intrusionsense.sensor import FlowUploader, Sensor
@@ -33,11 +60,14 @@ def run_sensor(args) -> None:
 
         print("\n".join(list_interfaces()))
         return
-    token = os.environ.get(TOKEN_ENV_VAR)
-    if not token:
-        sys.exit(f"Set {TOKEN_ENV_VAR} to the token from 'intrusionsense create-sensor'.")
+    config = resolve_config(args)
+    if not config.token:
+        exit_with_message(
+            f"No sensor token. Register a sensor in the dashboard and save its {CONFIG_FILE_NAME} "
+            f"next to this program, or set {TOKEN_ENV_VAR}."
+        )
 
-    uploader = FlowUploader(args.server, token)
+    uploader = FlowUploader(config.server, config.token)
     sensor = Sensor(uploader)
     stop = threading.Event()
     upload_thread = threading.Thread(target=uploader.run, args=(stop,), name="uploader", daemon=True)
@@ -45,22 +75,22 @@ def run_sensor(args) -> None:
 
     capture = None
     if args.pcap:
-        log.info("Replaying %s to %s", args.pcap, args.server)
+        log.info("Replaying %s to %s", args.pcap, config.server)
         sensor.run_pcap(args.pcap)
     else:
         interface = args.iface or os.environ.get(INTERFACE_ENV_VAR) or default_interface()
         if interface is None:
-            sys.exit("Could not find the network interface; pass --iface.")
+            exit_with_message("Could not find the network interface; pass --iface.")
         for signum in (signal.SIGINT, signal.SIGTERM):
             signal.signal(signum, lambda *_: stop.set())
-        log.info("Capturing on %s, sending to %s", interface, args.server)
-        capture = LiveCapture(interface, bpf_filter_excluding(args.server))
+        log.info("Capturing on %s, sending to %s", interface, config.server)
+        capture = LiveCapture(interface, bpf_filter_excluding(config.server))
         try:
             sensor.run_live(capture, stop)
         except (PermissionError, RuntimeError) as exc:
             log.error("%s (capture needs root, or CAP_NET_RAW on Linux, or Npcap on Windows)", exc)
             _shut_down(sensor, upload_thread, stop, capture)
-            sys.exit(1)
+            exit_with_message("Capture failed; see the message above.")
     _shut_down(sensor, upload_thread, stop, capture)
 
 
@@ -103,7 +133,8 @@ def record_traffic(args) -> None:
 
 def add_sensor_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--server", default=DEFAULT_SERVER_URL, help=f"server URL (default {DEFAULT_SERVER_URL})"
+        "--server",
+        help=f"server URL (default: from {CONFIG_FILE_NAME}, else {DEFAULT_SERVER_URL})",
     )
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--iface", help="interface to capture on (default: the one with the default route)")

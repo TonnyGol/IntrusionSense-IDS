@@ -47,18 +47,14 @@ Open **Sensors** in the dashboard, choose **Register sensor**, and copy the toke
 docker compose --profile capture up -d
 ```
 
-**Windows.** Docker on Windows cannot see your real network card, so the sensor runs as a normal program.
+**Windows.** Docker on Windows cannot see your real network card, so the sensor runs as a normal program next to the Docker stack.
 
-1. Install [Npcap](https://npcap.com/) (tick *WinPcap API-compatible mode*).
-2. Download `intrusionsense-sensor-windows-x64.exe` from the release.
-3. In an Administrator PowerShell:
+1. Install [Npcap](https://npcap.com/) and tick *WinPcap API-compatible mode*.
+2. Download `intrusionsense-sensor-windows-x64.exe` from the release into a folder of its own.
+3. In the dashboard choose **Sensors → Register sensor**, then **Download sensor.conf** and save it in that same folder. It holds your server address and the token, which is shown only once.
+4. Double-click the program. A window opens and shows what it captures and sends. Close it (or press Ctrl+C) to stop.
 
-   ```powershell
-   $env:INTRUSIONSENSE_SENSOR_TOKEN = "<token>"
-   .\intrusionsense-sensor-windows-x64.exe --server http://127.0.0.1:8000
-   ```
-
-   Windows SmartScreen may warn about an unsigned program: choose *More info*, then *Run anyway*.
+If you double-click the program without a `sensor.conf`, it asks for the server address and the token in its window and saves them for next time. Windows SmartScreen may warn about an unsigned program: choose *More info*, then *Run anyway*. To run it from PowerShell instead, the dashboard shows the exact command after you register.
 
 **macOS.** Download `intrusionsense-sensor-macos-arm64` (Apple silicon) or `-macos-x64` (Intel):
 

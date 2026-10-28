@@ -257,3 +257,11 @@ def test_a_heartbeat_marks_an_idle_sensor_online(client, users, session_factory)
     assert post_batch(client, token).json() == {"accepted": 0, "new_alerts": 0}
 
     assert client.get("/api/sensors").json()[0]["online"] is True
+
+
+def test_the_server_has_a_websocket_library_for_live_alerts():
+    """Plain uvicorn answers /ws with 404 and no hint; the Docker image only has what pyproject lists."""
+    import importlib.metadata
+
+    requirements = importlib.metadata.requires("intrusionsense") or []
+    assert any(requirement.lower().startswith("websockets") for requirement in requirements)
