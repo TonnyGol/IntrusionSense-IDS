@@ -65,3 +65,10 @@ def test_every_feature_the_real_models_expect_is_produced_and_finite():
     for name in set(engine.l1_features) | set(engine.l2_features):
         assert name in features
         assert math.isfinite(features[name])
+
+
+def test_feature_names_constant_matches_what_compute_features_produces():
+    from intrusionsense.features import FEATURE_NAMES
+
+    assert list(_http_exchange()) == list(FEATURE_NAMES)
+    assert len(FEATURE_NAMES) == 46

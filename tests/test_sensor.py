@@ -121,3 +121,29 @@ def test_an_empty_buffer_sends_an_empty_batch_as_a_heartbeat():
 
     assert uploader.send_batch()
     assert uploader._http.bodies == [b'{"records":[]}']
+
+
+def test_recorder_writes_labelled_feature_rows_from_a_pcap(tmp_path):
+    import csv
+
+    from intrusionsense.features import FEATURE_NAMES
+    from intrusionsense.recorder import CsvRecorder
+
+    packets = [
+        tcp_packet(flags="S", at=START_TIME),
+        tcp_packet(src=VICTIM, dst=ATTACKER, sport=80, dport=40000, flags="SA", at=START_TIME + 0.01),
+        tcp_packet(flags="FA", at=START_TIME + 0.02),
+    ]
+    pcap, out = tmp_path / "normal.pcap", tmp_path / "normal.csv"
+    wrpcap(str(pcap), packets)
+
+    recorder = CsvRecorder(out)
+    Sensor(recorder).run_pcap(str(pcap))
+    recorder.close()
+    CsvRecorder(out).close()  # reopening must not write a second header
+
+    rows = list(csv.DictReader(out.open()))
+    assert len(rows) == 1
+    assert list(rows[0]) == [*FEATURE_NAMES, "Attack Type"]
+    assert rows[0]["Attack Type"] == "Normal Traffic"
+    assert float(rows[0]["Total Fwd Packets"]) == 2

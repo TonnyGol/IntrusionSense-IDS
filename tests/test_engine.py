@@ -52,3 +52,12 @@ def test_real_models_only_produce_known_labels():
 
     verdict = engine.predict(features)
     assert verdict.label in ATTACK_LABELS.values()
+
+
+def test_latency_benchmark_reports_ordered_percentiles(stub_model_dir):
+    from intrusionsense.benchmark import measure_latency
+
+    result = measure_latency(stub_model_dir, l1_threshold=0.5, flows=40)
+
+    assert result.flows == 40
+    assert 0 < result.percentiles_ms[50] <= result.percentiles_ms[95] <= result.percentiles_ms[99]

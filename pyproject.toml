@@ -27,11 +27,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "httpx", "ruff"]
+train = ["pandas==3.0.3"]
+dev = ["pandas==3.0.3", "pytest", "pytest-cov", "pytest-timeout", "httpx", "ruff"]
 research = ["pandas==3.0.3", "matplotlib==3.11.2", "seaborn==0.13.2", "ipykernel"]
 
 [project.scripts]
 intrusionsense = "intrusionsense.cli:main"
+intrusionsense-sensor = "intrusionsense.sensor_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -51,3 +53,7 @@ extend-exclude = ["research", "src/Interface", "src/interface2", "src/Tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# the report template is prose; wrapping it would only make the generated Markdown worse
+"src/intrusionsense/evaluation.py" = ["E501"]

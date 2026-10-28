@@ -11,6 +11,62 @@ from intrusionsense.flows import Flow
 MICROSECONDS = 1_000_000
 MIN_DURATION_SECONDS = 0.0001  # keeps the per-second rates finite for single-instant flows
 
+# the features the models are trained on, in model column order
+FEATURE_NAMES = (
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Length of Fwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Bwd Packet Length Std",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Total",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Max",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd Packets/s",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Std",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "Average Packet Size",
+    "Subflow Fwd Bytes",
+    "act_data_pkt_fwd",
+    "Active Mean",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Max",
+    "Idle Min",
+)
+
+# TCP flag counts are left out of the models. In CICIDS2017 they follow the attack label (PSH is set in
+# 99.9% of port scans, ACK in only 29% of normal flows), so a model learns capture quirks that real traffic
+# does not share: a live SYN scan has no PSH, and a live normal TCP flow always has ACK.
+FLAG_FEATURES = ("FIN Flag Count", "PSH Flag Count", "ACK Flag Count")
+MODEL_FEATURES = tuple(name for name in FEATURE_NAMES if name not in FLAG_FEATURES)
+
 
 def _stats_or_zero(values: np.ndarray) -> tuple[float, float, float, float]:
     """max, min, mean, std of values, all 0 for an empty array."""

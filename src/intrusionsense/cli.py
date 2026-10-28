@@ -1,26 +1,27 @@
 import argparse
 import getpass
 import logging
-import os
 import secrets
-import signal
 import sys
-import threading
+from pathlib import Path
 
-from intrusionsense.config import ServerSettings
+from intrusionsense.config import DEFAULT_MODEL_DIR, ServerSettings
+from intrusionsense.sensor_cli import (
+    DEFAULT_RECORD_MINUTES,
+    TOKEN_ENV_VAR,
+    add_sensor_arguments,
+    configure_logging,
+    record_traffic,
+    run_sensor,
+)
 
 log = logging.getLogger("intrusionsense")
 
 SESSION_SECRET_BYTES = 32
+DEFAULT_RAW_DIR = "data/raw"
+DEFAULT_BENCH_FLOWS = 2000
+DEFAULT_RECORDINGS_DIR = "data/recordings"
 ADMIN_ROLE = "Admin"
-DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
-TOKEN_ENV_VAR = "INTRUSIONSENSE_SENSOR_TOKEN"
-LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
-
-
-def _configure_logging(level: str) -> None:
-    # stdout only: Docker, systemd and Windows services all collect it
-    logging.basicConfig(level=level.upper(), format=LOG_FORMAT, stream=sys.stdout)
 
 
 def _session_factory(settings: ServerSettings):
@@ -36,7 +37,7 @@ def serve(args) -> None:
     from intrusionsense.server.services import build_services
 
     settings = ServerSettings()
-    _configure_logging(settings.log_level)
+    configure_logging(settings.log_level)
     session_secret = settings.session_secret
     if not session_secret:
         log.warning("SESSION_SECRET is not set: using a random one, so every restart signs everyone out")
@@ -45,47 +46,33 @@ def serve(args) -> None:
     uvicorn.run(app, host=args.host or settings.web_host, port=args.port or settings.web_port)
 
 
-def run_sensor(args) -> None:
-    from intrusionsense.capture import LiveCapture, bpf_filter_excluding, default_interface
-    from intrusionsense.sensor import FlowUploader, Sensor
+def train_models(args) -> None:
+    from intrusionsense.training import train
 
-    _configure_logging(args.log_level)
-    token = os.environ.get(TOKEN_ENV_VAR)
-    if not token:
-        sys.exit(f"Set {TOKEN_ENV_VAR} to the token from 'intrusionsense create-sensor'.")
-
-    uploader = FlowUploader(args.server, token)
-    sensor = Sensor(uploader)
-    stop = threading.Event()
-    upload_thread = threading.Thread(target=uploader.run, args=(stop,), name="uploader", daemon=True)
-    upload_thread.start()
-
-    capture = None
-    if args.pcap:
-        log.info("Replaying %s to %s", args.pcap, args.server)
-        sensor.run_pcap(args.pcap)
-    else:
-        interface = args.iface or default_interface()
-        if interface is None:
-            sys.exit("Could not find the network interface; pass --iface.")
-        for signum in (signal.SIGINT, signal.SIGTERM):
-            signal.signal(signum, lambda *_: stop.set())
-        log.info("Capturing on %s, sending to %s", interface, args.server)
-        capture = LiveCapture(interface, bpf_filter_excluding(args.server))
-        try:
-            sensor.run_live(capture, stop)
-        except (PermissionError, RuntimeError) as exc:
-            log.error("%s (capture needs root, or CAP_NET_RAW on Linux, or Npcap on Windows)", exc)
-            _shut_down(sensor, upload_thread, stop, capture)
-            sys.exit(1)
-    _shut_down(sensor, upload_thread, stop, capture)
+    configure_logging("INFO")
+    details = train(Path(args.raw), Path(args.recordings) if args.recordings else None, Path(args.out))
+    print(f"Models written to {args.out} ({details['rows_kept']} flows after cleaning).")
 
 
-def _shut_down(sensor, upload_thread: threading.Thread, stop: threading.Event, capture) -> None:
-    stop.set()
-    upload_thread.join()
-    sensor.uploader.drain()
-    sensor.log_stats(capture.dropped if capture else 0)
+def evaluate_models(args) -> None:
+    from intrusionsense.evaluation import build_report
+
+    configure_logging("INFO")
+    report = build_report(Path(args.raw), Path(args.recordings) if args.recordings else None)
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(report)
+    print(f"Wrote {args.out}")
+
+
+def bench_latency(args) -> None:
+    from intrusionsense.benchmark import measure_latency
+
+    settings = ServerSettings()
+    result = measure_latency(settings.model_dir, settings.l1_threshold, args.flows)
+    print(f"{result.flows} flows, from flow closed to detection decision (network and database excluded):")
+    for percentile, milliseconds in result.percentiles_ms.items():
+        print(f"  p{percentile}: {milliseconds:.2f} ms")
+    print(f"  mean: {result.mean_ms:.2f} ms")
 
 
 def create_admin(args) -> None:
@@ -134,14 +121,43 @@ def build_parser() -> argparse.ArgumentParser:
     sensor_cmd = commands.add_parser(
         "sensor", help=f"capture traffic and send flows to the server ({TOKEN_ENV_VAR})"
     )
-    sensor_cmd.add_argument(
-        "--server", default=DEFAULT_SERVER_URL, help=f"server URL (default {DEFAULT_SERVER_URL})"
-    )
-    source = sensor_cmd.add_mutually_exclusive_group()
-    source.add_argument("--iface", help="interface to capture on (default: the one with the default route)")
-    source.add_argument("--pcap", help="replay a capture file instead of sniffing")
-    sensor_cmd.add_argument("--log-level", default="INFO")
+    add_sensor_arguments(sensor_cmd)
     sensor_cmd.set_defaults(handler=run_sensor)
+
+    record_cmd = commands.add_parser("record", help="record flow features as labelled training data")
+    record_cmd.add_argument("--out", required=True, help="CSV file to append to")
+    record_cmd.add_argument(
+        "--label", default="Normal Traffic", help="label for every flow (default Normal Traffic)"
+    )
+    record_cmd.add_argument("--minutes", type=int, default=DEFAULT_RECORD_MINUTES)
+    record_source = record_cmd.add_mutually_exclusive_group()
+    record_source.add_argument(
+        "--iface", help="interface to capture on (default: the one with the default route)"
+    )
+    record_source.add_argument("--pcap", help="label the flows of a capture file instead of sniffing")
+    record_cmd.set_defaults(handler=record_traffic)
+
+    train_cmd = commands.add_parser("train", help="train the models from the raw CICIDS2017 day files")
+    train_cmd.add_argument(
+        "--raw", default=DEFAULT_RAW_DIR, help=f"folder of CICIDS2017 CSVs (default {DEFAULT_RAW_DIR})"
+    )
+    train_cmd.add_argument(
+        "--recordings", default=DEFAULT_RECORDINGS_DIR, help="folder of recorded normal traffic CSVs"
+    )
+    train_cmd.add_argument("--out", default=str(DEFAULT_MODEL_DIR), help="where to write the model files")
+    train_cmd.set_defaults(handler=train_models)
+
+    evaluate_cmd = commands.add_parser("evaluate", help="measure the models and write a results report")
+    evaluate_cmd.add_argument("--raw", default=DEFAULT_RAW_DIR)
+    evaluate_cmd.add_argument("--recordings", default=DEFAULT_RECORDINGS_DIR)
+    evaluate_cmd.add_argument("--out", default="docs/results.md")
+    evaluate_cmd.set_defaults(handler=evaluate_models)
+
+    bench_cmd = commands.add_parser(
+        "bench", help="measure how fast a closed flow becomes a detection decision"
+    )
+    bench_cmd.add_argument("--flows", type=int, default=DEFAULT_BENCH_FLOWS)
+    bench_cmd.set_defaults(handler=bench_latency)
 
     admin_cmd = commands.add_parser("create-admin", help="create an admin or reset its password")
     admin_cmd.add_argument("--username", default="admin")

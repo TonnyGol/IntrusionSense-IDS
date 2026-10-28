@@ -4,12 +4,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_MODEL_DIR = PACKAGE_DIR / "models"
+# Docker mounts generated secrets here, one file per setting (db_password, session_secret)
+DOCKER_SECRETS_DIR = Path("/run/secrets")
 
 
 class ServerSettings(BaseSettings):
     """Server-side settings, from environment variables or a .env file in the working directory."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        secrets_dir=DOCKER_SECRETS_DIR if DOCKER_SECRETS_DIR.is_dir() else None,
+    )
 
     db_user: str = "intrusionsense"
     db_password: str  # required: no default credentials
