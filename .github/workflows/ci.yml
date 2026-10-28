@@ -25,6 +25,20 @@ jobs:
       - run: ruff format --check src/intrusionsense tests scripts
       - run: pytest --cov=intrusionsense --cov-report=term-missing --timeout=120
 
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest --timeout=120
+      - name: The sensor program builds and starts
+        shell: bash
+        run: bash scripts/build-sensor.sh
+
   security:
     runs-on: ubuntu-latest
     steps:

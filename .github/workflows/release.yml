@@ -50,18 +50,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install . pyinstaller
-      # the sensor needs only capture and upload code; excluding the rest keeps the program small
-      - run: >
-          pyinstaller --noconfirm --onefile --name intrusionsense-sensor
-          --collect-submodules scapy
-          --exclude-module scipy --exclude-module pandas --exclude-module sqlalchemy --exclude-module matplotlib
-          --exclude-module IPython --exclude-module sklearn --exclude-module joblib --exclude-module fastapi
-          --exclude-module uvicorn --exclude-module tkinter
-          src/intrusionsense/sensor_cli.py
-      - name: Check the program starts
-        run: ./dist/intrusionsense-sensor --help
-        shell: bash
+      - run: bash scripts/build-sensor.sh
       - name: Name the file for this platform
         shell: bash
         run: |
