@@ -7,13 +7,14 @@ IntrusionSense-IDS is a Network Intrusion Detection System (IDS) that uses machi
 - **2-Stage Machine Learning Pipeline**: 
   - *Layer 1 (Gatekeeper)*: Quickly identifies whether traffic is normal or suspicious.
   - *Layer 2 (Deep Analysis)*: Categorizes the specific type of threat.
-- **Interactive Dashboard**: A user-friendly graphical interface to monitor the network.
+- **Web Dashboard**: Live alerts, a 24-hour activity strip, rules, sensors, users and an activity log, with role-based access (Admin, Manager, SOC Analyst).
+- **Sensor and server split**: the sensor captures traffic on the machine you watch; the server (and its database) can run anywhere.
 
 ## Prerequisites
 
 To run this project, particularly on Windows, you must have the following installed:
 
-1. **Python 3.8+**
+1. **Python 3.11+**
    Ensure Python is added to your System PATH during installation.
 
 2. **Npcap (Critical for Windows)**
@@ -31,33 +32,33 @@ The database runs in Docker, so MySQL is not installed on your computer.
    ```bash
    docker compose up -d db
    ```
-4. Create the first admin (prompts for a password; there are no default accounts):
-   ```bash
-   cd src
-   python -m database.create_admin
-   ```
+4. Start the server (see below) and open http://127.0.0.1:8000. The first visit asks you to create the admin account; there are no default accounts.
 
 The app uses SQLAlchemy and creates the tables (`Users`, `Rules`, `Alerts`, `TrafficLogs`) on startup.
 
 ## Installation
 
-1. Clone the repository to your local machine:
-   ```bash
-   git clone https://github.com/YourUsername/IntrusionSense-IDS.git
-   cd IntrusionSense-IDS
-   ```
-
-2. Install the required Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   *Note: This will install packages like `scapy`, `numpy`, `pandas`, `scikit-learn`, `joblib`, etc.*
+```bash
+git clone https://github.com/TonnyGol/IntrusionSense-IDS.git
+cd IntrusionSense-IDS
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+```
 
 ## How to Run
 
-To launch the IntrusionSense-IDS dashboard and start monitoring:
+1. Start the database: `docker compose up -d db`
+2. Start the server: `intrusionsense serve` (listens on 127.0.0.1:8000)
+3. In the web UI, open **Sensors**, register a sensor and copy its command.
+4. Run that command on the machine you want to watch (capture needs root, or `CAP_NET_RAW` on Linux, or Npcap on Windows):
 
-```bash
-cd src/Interface
-python dashboard.py
-```
+   ```bash
+   INTRUSIONSENSE_SENSOR_TOKEN=<token> sudo -E "$(command -v intrusionsense)" sensor --server http://127.0.0.1:8000
+   ```
+
+   (`sudo` does not see the virtual environment's PATH, so the full path is passed.)
+
+   To try it without live traffic, replay a capture file: add `--pcap capture.pcap` instead of sniffing.
+
+Run the tests with `pytest`.

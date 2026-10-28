@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IntrusionSense</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main id="screen-auth" class="auth" hidden>
+    <form id="auth-form" class="auth-card" autocomplete="on">
+      <h1 class="brand">IntrusionSense</h1>
+      <p id="auth-intro" class="muted"></p>
+      <label for="auth-username">Username</label>
+      <input id="auth-username" name="username" autocomplete="username" required minlength="3" maxlength="50">
+      <label for="auth-password">Password</label>
+      <input id="auth-password" name="password" type="password" required maxlength="256">
+      <p id="auth-hint" class="muted small" hidden></p>
+      <p id="auth-error" class="error" role="alert" hidden></p>
+      <button id="auth-submit" class="primary" type="submit"></button>
+    </form>
+  </main>
+
+  <div id="app" class="app" hidden>
+    <nav class="rail" aria-label="Main">
+      <div class="brand">IntrusionSense</div>
+      <ul id="nav" class="nav"></ul>
+      <div class="rail-foot">
+        <div id="live-status" class="live" role="status"><span class="dot"></span><span id="live-text">Connecting</span></div>
+        <div id="whoami" class="muted small"></div>
+        <button id="sign-out" class="link" type="button">Sign out</button>
+      </div>
+    </nav>
+
+    <main class="main">
+      <section id="view-alerts" class="view" aria-labelledby="h-alerts">
+        <header class="view-head">
+          <h2 id="h-alerts">Alerts</h2>
+          <div id="open-counts" class="open-counts"></div>
+        </header>
+        <figure class="strip" aria-label="Alerts per hour, last 24 hours">
+          <svg id="strip" role="img" aria-labelledby="strip-caption"></svg>
+          <div class="strip-axis muted small" aria-hidden="true"><span>24 hours ago</span><span>now</span></div>
+          <figcaption id="strip-caption" class="muted small"></figcaption>
+        </figure>
+        <div class="filters">
+          <label class="sr-only" for="f-search">Search</label>
+          <input id="f-search" type="search" placeholder="Search attack type or IP address" maxlength="100">
+          <label class="sr-only" for="f-status">Status</label>
+          <select id="f-status">
+            <option value="">All statuses</option>
+            <option value="active">Open</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="false_positive">False positive</option>
+            <option value="resolved">Resolved</option>
+          </select>
+          <label class="sr-only" for="f-severity">Severity</label>
+          <select id="f-severity">
+            <option value="">All severities</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div class="split">
+          <div class="table-wrap">
+            <table class="data" id="alert-table">
+              <thead><tr><th>Severity</th><th>Attack</th><th>Source</th><th>Target</th><th class="num">Seen</th><th>When</th></tr></thead>
+              <tbody id="alert-rows"></tbody>
+            </table>
+            <p id="alerts-empty" class="empty" hidden></p>
+            <button id="load-more" class="secondary" type="button" hidden>Show older alerts</button>
+          </div>
+          <aside id="drawer" class="drawer" aria-label="Alert details" hidden></aside>
+        </div>
+      </section>
+
+      <section id="view-rules" class="view" aria-labelledby="h-rules" hidden>
+        <header class="view-head">
+          <h2 id="h-rules">Rules</h2>
+          <button id="new-rule" class="primary" type="button">Add rule</button>
+        </header>
+        <p class="muted lead">Rules run before the machine-learning model. Use them to catch known patterns or to ignore trusted traffic.</p>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Name</th><th>Condition</th><th>Action</th><th>State</th><th></th></tr></thead>
+            <tbody id="rule-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-sensors" class="view" aria-labelledby="h-sensors" hidden>
+        <header class="view-head">
+          <h2 id="h-sensors">Sensors</h2>
+          <button id="new-sensor" class="primary" type="button">Register sensor</button>
+        </header>
+        <p class="muted lead">A sensor watches the network on one machine and sends what it sees to this server.</p>
+        <div id="sensor-token" class="notice" hidden></div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Name</th><th>State</th><th>Last heard from</th><th></th></tr></thead>
+            <tbody id="sensor-rows"></tbody>
+          </table>
+          <p id="sensors-empty" class="empty" hidden>No sensors yet. Register one, then run it on the machine you want to watch.</p>
+        </div>
+      </section>
+
+      <section id="view-users" class="view" aria-labelledby="h-users" hidden>
+        <header class="view-head">
+          <h2 id="h-users">Users</h2>
+          <button id="new-user" class="primary" type="button">Add user</button>
+        </header>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Username</th><th>Role</th><th>Created</th><th></th></tr></thead>
+            <tbody id="user-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-activity" class="view" aria-labelledby="h-activity" hidden>
+        <header class="view-head"><h2 id="h-activity">Activity</h2></header>
+        <p class="muted lead">The last 200 sign-ins and changes.</p>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>When</th><th>User</th><th>Action</th><th>Detail</th><th>From</th></tr></thead>
+            <tbody id="activity-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="form-dialog">
+    <form id="dialog-form" method="dialog">
+      <h3 id="dialog-title"></h3>
+      <div id="dialog-fields"></div>
+      <p id="dialog-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="dialog-cancel" class="secondary" type="button">Cancel</button>
+        <button id="dialog-submit" class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

@@ -26,3 +26,8 @@ class ServerSettings(BaseSettings):
     web_port: int = 8000
 
     log_level: str = "INFO"
+
+    # signs session cookies; if empty a random one is made at start-up and everyone is logged out on restart
+    session_secret: str = ""
+    # set true when the UI is served over HTTPS so the session cookie is never sent over plain HTTP
+    session_cookie_secure: bool = False

@@ -18,6 +18,8 @@ INGEST_PATH = "/api/sensor/flows"
 MAX_BUFFERED_RECORDS = 20_000
 MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # under the server's 4 MB batch limit
 UPLOAD_INTERVAL_SECONDS = 1.0
+# the server shows a sensor as online if it was heard from in the last two minutes
+HEARTBEAT_SECONDS = 30.0
 MAX_RETRY_DELAY_SECONDS = 30.0
 REQUEST_TIMEOUT_SECONDS = 10.0
 DRAIN_TIMEOUT_SECONDS = 15.0
@@ -76,8 +78,6 @@ class FlowUploader:
         """Post one batch. True when the buffer made progress (sent or discarded), False to retry later."""
         with self._lock:
             batch = _take_batch(self._buffer)
-        if not batch:
-            return True
         body = '{"records":[' + ",".join(batch) + "]}"
         try:
             response = self._http.post(self.url, data=body.encode(), timeout=REQUEST_TIMEOUT_SECONDS)
@@ -99,10 +99,17 @@ class FlowUploader:
 
     def run(self, stop: threading.Event) -> None:
         delay = UPLOAD_INTERVAL_SECONDS
+        last_contact = time.monotonic()
         while not stop.is_set():
-            ok = self.send_batch()
-            delay = UPLOAD_INTERVAL_SECONDS if ok else min(delay * 2, MAX_RETRY_DELAY_SECONDS)
-            stop.wait(0 if ok and len(self) else delay)
+            if len(self) or time.monotonic() - last_contact >= HEARTBEAT_SECONDS:
+                ok = (
+                    self.send_batch()
+                )  # with nothing buffered this is an empty batch: it only says "still here"
+                last_contact = time.monotonic() if ok else last_contact
+                delay = UPLOAD_INTERVAL_SECONDS if ok else min(delay * 2, MAX_RETRY_DELAY_SECONDS)
+                stop.wait(0 if ok and len(self) else delay)
+            else:
+                stop.wait(UPLOAD_INTERVAL_SECONDS)
 
     def drain(self, timeout: float = DRAIN_TIMEOUT_SECONDS) -> None:
         deadline = time.monotonic() + timeout

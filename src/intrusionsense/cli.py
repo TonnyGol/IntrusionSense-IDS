@@ -2,6 +2,7 @@ import argparse
 import getpass
 import logging
 import os
+import secrets
 import signal
 import sys
 import threading
@@ -10,7 +11,7 @@ from intrusionsense.config import ServerSettings
 
 log = logging.getLogger("intrusionsense")
 
-MIN_PASSWORD_LENGTH = 12
+SESSION_SECRET_BYTES = 32
 ADMIN_ROLE = "Admin"
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
 TOKEN_ENV_VAR = "INTRUSIONSENSE_SENSOR_TOKEN"
@@ -36,7 +37,11 @@ def serve(args) -> None:
 
     settings = ServerSettings()
     _configure_logging(settings.log_level)
-    app = create_app(build_services(settings))
+    session_secret = settings.session_secret
+    if not session_secret:
+        log.warning("SESSION_SECRET is not set: using a random one, so every restart signs everyone out")
+        session_secret = secrets.token_urlsafe(SESSION_SECRET_BYTES)
+    app = create_app(build_services(settings), session_secret, settings.session_cookie_secure)
     uvicorn.run(app, host=args.host or settings.web_host, port=args.port or settings.web_port)
 
 
@@ -84,17 +89,16 @@ def _shut_down(sensor, upload_thread: threading.Thread, stop: threading.Event, c
 
 
 def create_admin(args) -> None:
-    from argon2 import PasswordHasher
-
+    from intrusionsense.server.security import hash_password, password_problem
     from intrusionsense.storage.models import User
 
     password = getpass.getpass("Password: ")
-    if len(password) < MIN_PASSWORD_LENGTH:
-        sys.exit(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    if (problem := password_problem(password)) is not None:
+        sys.exit(problem)
     if password != getpass.getpass("Repeat password: "):
         sys.exit("Passwords do not match.")
 
-    password_hash = PasswordHasher().hash(password)
+    password_hash = hash_password(password)
     with _session_factory(ServerSettings())() as session:
         user = session.query(User).filter_by(Username=args.username).first()
         if user:

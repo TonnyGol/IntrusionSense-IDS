@@ -114,3 +114,10 @@ def test_pcap_replay_turns_a_port_scan_into_flow_records(tmp_path):
     assert len(records) == 20
     assert {r.dst_port for r in records} == set(range(1000, 1020))
     assert records[-1].src_connections_last_minute == 20
+
+
+def test_an_empty_buffer_sends_an_empty_batch_as_a_heartbeat():
+    uploader = uploader_with(200)
+
+    assert uploader.send_batch()
+    assert uploader._http.bodies == [b'{"records":[]}']

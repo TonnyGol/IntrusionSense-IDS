@@ -12,6 +12,7 @@ requires-python = ">=3.11"
 dependencies = [
     "argon2-cffi==25.1.0",
     "fastapi==0.162.0",
+    "itsdangerous==2.2.0",
     "joblib==1.5.3",
     "numpy==2.4.6",
     "psutil==7.2.2",
@@ -37,7 +38,7 @@ where = ["src"]
 include = ["intrusionsense*"]
 
 [tool.setuptools.package-data]
-intrusionsense = ["models/*.pkl"]
+intrusionsense = ["models/*.pkl", "server/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

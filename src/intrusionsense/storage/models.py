@@ -106,3 +106,16 @@ class Alert(Base):
     triggered_rule = relationship("Rule", back_populates="alerts")
     assignee = relationship("User", back_populates="alerts_assigned")
     sensor = relationship("Sensor", back_populates="alerts")
+
+
+class AuditLog(Base):
+    """Who did what: logins, rule and user changes, alert triage."""
+
+    __tablename__ = "audit_log"
+
+    AuditID = Column(BigIntegerId, primary_key=True, autoincrement=True)
+    At = Column(DateTime, default=utc_now, nullable=False)
+    Username = Column(String(50), nullable=True)  # kept as text so the entry survives user deletion
+    Action = Column(String(60), nullable=False)
+    Detail = Column(Text, nullable=True)
+    ClientIP = Column(String(45), nullable=True)

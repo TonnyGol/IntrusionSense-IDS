@@ -23,7 +23,7 @@ def services(session_factory, stub_engine):
 
 @pytest.fixture
 def client(services):
-    return TestClient(create_app(services))
+    return TestClient(create_app(services, session_secret="test-secret"))
 
 
 @pytest.fixture
