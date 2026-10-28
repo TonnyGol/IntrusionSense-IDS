@@ -70,6 +70,8 @@ sudo INTRUSIONSENSE_SENSOR_TOKEN=<token> ./intrusionsense-sensor-macos-arm64 --s
 
 **Another computer.** Point `--server` at the server's address. The dashboard only listens on `127.0.0.1` by default; publish it deliberately and put it behind HTTPS before you do (set `SESSION_COOKIE_SECURE=true`).
 
+The sensor picks the interface with your default route. If it picks the wrong one (common with VPNs or several adapters), run it with `--list-interfaces` to see the names and pass one with `--iface "<name>"`.
+
 To try it without live traffic, replay a capture file: add `--pcap capture.pcap`.
 
 ## How well does it work?

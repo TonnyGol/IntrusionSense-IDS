@@ -147,3 +147,14 @@ def test_recorder_writes_labelled_feature_rows_from_a_pcap(tmp_path):
     assert list(rows[0]) == [*FEATURE_NAMES, "Attack Type"]
     assert rows[0]["Attack Type"] == "Normal Traffic"
     assert float(rows[0]["Total Fwd Packets"]) == 2
+
+
+def test_listing_interfaces_prints_names_and_exits_without_needing_a_token(capsys, monkeypatch):
+    from intrusionsense.sensor_cli import TOKEN_ENV_VAR, main
+
+    monkeypatch.delenv(TOKEN_ENV_VAR, raising=False)
+
+    main(["--list-interfaces"])
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert lines and all(line.strip() for line in lines)

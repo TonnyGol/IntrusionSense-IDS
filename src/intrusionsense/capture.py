@@ -31,6 +31,18 @@ def default_interface() -> str | None:
     return None
 
 
+def list_interfaces() -> list[str]:
+    """One line per network interface that is up: the name to pass to --iface, then its IPv4 addresses."""
+    stats = psutil.net_if_stats()
+    lines = []
+    for name, addresses in psutil.net_if_addrs().items():
+        if name in stats and not stats[name].isup:
+            continue
+        ipv4 = [a.address for a in addresses if a.family == socket.AF_INET]
+        lines.append(f"{name}  {', '.join(ipv4) if ipv4 else '(no IPv4 address)'}")
+    return lines
+
+
 def bpf_filter_excluding(server_url: str) -> str:
     """Capture filter that skips the sensor's own uploads, which would otherwise become flows to report."""
     url = urlparse(server_url)

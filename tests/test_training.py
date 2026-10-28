@@ -204,3 +204,20 @@ def test_models_do_not_learn_from_tcp_flag_counts(raw_dir, tmp_path):
     assert not set(FLAG_FEATURES) & set(engine.l1_features)
     assert not set(FLAG_FEATURES) & set(engine.l2_features)
     assert len(engine.l1_features) == 43
+
+
+def test_report_measures_false_alarms_on_held_out_recorded_traffic(raw_dir, tmp_path):
+    recordings = tmp_path / "rec"
+    recordings.mkdir()
+    rng = np.random.default_rng(9)
+    for name, rows in (("big.csv", 300), ("tiny.csv", 20)):
+        values = rng.normal(0, 1.0, size=(rows, len(FEATURE_NAMES)))
+        pd.DataFrame(values, columns=list(FEATURE_NAMES)).assign(**{LABEL_COLUMN: "Normal Traffic"}).to_csv(
+            recordings / name, index=False
+        )
+
+    report = build_report(raw_dir, recordings_dir=recordings)
+
+    assert "Layer 1 on recorded normal traffic" in report
+    assert "| big.csv | 90 |" in report  # 30% of 300 kept out of training
+    assert "| tiny.csv | 6 | too few flows to measure |" in report

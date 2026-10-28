@@ -136,15 +136,25 @@ def _clean(frame: pd.DataFrame) -> Dataset:
     return dataset
 
 
-def load_recordings(recordings_dir: Path | None) -> pd.DataFrame:
-    """Flows saved by `intrusionsense record`: live-pipeline features, labelled by the recorder."""
+def load_recordings_by_file(recordings_dir: Path | None) -> dict[str, pd.DataFrame]:
+    """Flows saved by `intrusionsense record`, one frame per file, labelled by the recorder."""
     columns = [*FEATURE_NAMES, LABEL_COLUMN]
     files = sorted(Path(recordings_dir).glob("*.csv")) if recordings_dir else []
-    if not files:
-        return pd.DataFrame(columns=columns)
-    frame = pd.concat([pd.read_csv(path)[columns] for path in files], ignore_index=True)
-    frame = frame[np.isfinite(frame[list(FEATURE_NAMES)].to_numpy()).all(axis=1)]
-    return frame.drop_duplicates()
+    recordings = {}
+    for path in files:
+        frame = pd.read_csv(path)[columns]
+        frame = frame[np.isfinite(frame[list(FEATURE_NAMES)].to_numpy()).all(axis=1)]
+        recordings[path.name] = frame.drop_duplicates().reset_index(drop=True)
+    return recordings
+
+
+def load_recordings(recordings_dir: Path | None) -> pd.DataFrame:
+    frames = list(load_recordings_by_file(recordings_dir).values())
+    return (
+        pd.concat(frames, ignore_index=True).drop_duplicates()
+        if frames
+        else pd.DataFrame(columns=[*FEATURE_NAMES, LABEL_COLUMN])
+    )
 
 
 def layer_1_training_frame(cicids: pd.DataFrame, recordings: pd.DataFrame, seed: int = SEED) -> pd.DataFrame:

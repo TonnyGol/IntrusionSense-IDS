@@ -28,6 +28,11 @@ def run_sensor(args) -> None:
     from intrusionsense.sensor import FlowUploader, Sensor
 
     configure_logging(args.log_level)
+    if args.list_interfaces:
+        from intrusionsense.capture import list_interfaces
+
+        print("\n".join(list_interfaces()))
+        return
     token = os.environ.get(TOKEN_ENV_VAR)
     if not token:
         sys.exit(f"Set {TOKEN_ENV_VAR} to the token from 'intrusionsense create-sensor'.")
@@ -104,6 +109,9 @@ def add_sensor_arguments(parser: argparse.ArgumentParser) -> None:
     source.add_argument("--iface", help="interface to capture on (default: the one with the default route)")
     source.add_argument("--pcap", help="replay a capture file instead of sniffing")
     parser.add_argument("--log-level", default="INFO")
+    parser.add_argument(
+        "--list-interfaces", action="store_true", help="show the names --iface accepts, then exit"
+    )
 
 
 def main(argv: list[str] | None = None) -> None:
