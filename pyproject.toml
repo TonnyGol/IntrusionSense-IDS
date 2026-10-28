@@ -20,7 +20,7 @@ dependencies = [
     "pydantic-settings==2.16.1",
     "PyMySQL==1.2.3",
     "requests==2.34.2",
-    "scapy==2.7.0",
+    "scapy==2.8.0",
     "scikit-learn==1.8.0",
     "SQLAlchemy==2.1.6",
     "uvicorn==0.54.0",
