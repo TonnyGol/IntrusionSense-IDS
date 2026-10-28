@@ -24,6 +24,7 @@ dependencies = [
     "scikit-learn==1.8.0",
     "SQLAlchemy==2.1.6",
     "uvicorn==0.54.0",
+    "websockets==17.3",  # uvicorn serves /ws (live alerts) only when a WebSocket library is installed
 ]
 
 [project.optional-dependencies]

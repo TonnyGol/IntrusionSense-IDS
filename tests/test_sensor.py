@@ -1,5 +1,6 @@
 from collections import deque
 
+import pytest
 import requests
 from conftest import ATTACKER, START_TIME, VICTIM, tcp_packet
 from scapy.utils import wrpcap
@@ -158,3 +159,41 @@ def test_listing_interfaces_prints_names_and_exits_without_needing_a_token(capsy
 
     lines = capsys.readouterr().out.strip().splitlines()
     assert lines and all(line.strip() for line in lines)
+
+
+def test_sensor_config_round_trips_and_tolerates_notepad_quirks(tmp_path):
+    from intrusionsense.sensor_config import SensorConfig, load_config, save_config
+
+    path = tmp_path / "sensor.conf"
+    save_config(path, SensorConfig(server="http://10.0.0.5:8000", token="abc123"))
+    assert load_config(path) == SensorConfig(server="http://10.0.0.5:8000", token="abc123")
+
+    path.write_text('﻿# saved by hand\nServer = "http://host:8000"\n\ntoken = xyz\n', encoding="utf-8")
+    assert load_config(path) == SensorConfig(server="http://host:8000", token="xyz")
+    assert load_config(tmp_path / "missing.conf") == SensorConfig()
+
+
+def test_sensor_takes_its_token_and_server_from_sensor_conf_next_to_it(tmp_path, monkeypatch):
+    from intrusionsense import sensor_cli
+    from intrusionsense.sensor_config import SensorConfig, save_config
+
+    monkeypatch.delenv(sensor_cli.TOKEN_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+    save_config(tmp_path / "sensor.conf", SensorConfig(server="http://10.0.0.5:8000", token="abc123"))
+    args = sensor_cli.argparse.Namespace(server=None)
+
+    assert sensor_cli.resolve_config(args) == SensorConfig(server="http://10.0.0.5:8000", token="abc123")
+    args.server = "http://other:9000"
+    assert sensor_cli.resolve_config(args).server == "http://other:9000"
+
+
+def test_sensor_without_a_token_in_a_script_exits_with_a_clear_message(tmp_path, monkeypatch, capsys):
+    from intrusionsense import sensor_cli
+
+    monkeypatch.delenv(sensor_cli.TOKEN_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit):
+        sensor_cli.main([])
+
+    assert "sensor.conf" in capsys.readouterr().err
