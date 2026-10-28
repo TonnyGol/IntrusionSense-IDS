@@ -1,0 +1,5 @@
+# Loaded automatically in a git checkout, not in the release download: lets you run the server on the host
+# (`intrusionsense serve`) against this database while developing.
+services:
+  db:
+    ports: ["127.0.0.1:${DB_PORT:-3306}:3306"]

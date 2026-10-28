@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests scripts
+      - run: ruff format --check src/intrusionsense tests scripts
+      - run: pytest --cov=intrusionsense --cov-report=term-missing --timeout=120
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest --timeout=120
+      - name: The sensor program builds and starts
+        shell: bash
+        run: bash scripts/build-sensor.sh
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip && pip install pip-audit && pip install -e . && pip-audit --skip-editable
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the stack
+        run: docker compose up -d --build
+      - name: Wait for the app to report healthy
+        run: |
+          for i in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' intrusionsense-app-1)" = healthy ] && exit 0
+            sleep 3
+          done
+          docker compose logs
+          exit 1
+      - name: First-run setup works and the page is served with security headers
+        run: |
+          curl -sf http://127.0.0.1:8000/api/setup | grep '"needed":true'
+          curl -sfI http://127.0.0.1:8000/ | grep -i content-security-policy
+      - if: always()
+        run: docker compose down -v

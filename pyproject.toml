@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intrusionsense"
+version = "0.2.0"
+description = "Network intrusion detection: live flow capture, two-stage ML classification and rule engine"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "argon2-cffi==25.1.0",
+    "fastapi==0.162.0",
+    "itsdangerous==2.2.0",
+    "joblib==1.5.3",
+    "numpy==2.4.6",
+    "psutil==7.2.2",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "PyMySQL==1.2.3",
+    "requests==2.34.2",
+    "scapy==2.7.0",
+    "scikit-learn==1.8.0",
+    "SQLAlchemy==2.1.6",
+    "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+train = ["pandas==3.0.3"]
+dev = ["pandas==3.0.3", "pytest", "pytest-cov", "pytest-timeout", "httpx", "ruff"]
+research = ["pandas==3.0.3", "matplotlib==3.11.2", "seaborn==0.13.2", "ipykernel"]
+
+[project.scripts]
+intrusionsense = "intrusionsense.cli:main"
+intrusionsense-sensor = "intrusionsense.sensor_cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["intrusionsense*"]
+
+[tool.setuptools.package-data]
+intrusionsense = ["models/*.pkl", "server/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: long-running benchmarks"]
+
+[tool.ruff]
+line-length = 110
+src = ["src"]
+extend-exclude = ["research", "src/Interface", "src/interface2", "src/Tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# the report template is prose; wrapping it would only make the generated Markdown worse
+"src/intrusionsense/evaluation.py" = ["E501"]

@@ -1,0 +1,90 @@
+# Start everything: docker compose up -d      Then open http://127.0.0.1:8000
+# Also capture traffic on a Linux host:  docker compose --profile capture up -d   (needs SENSOR_TOKEN in .env)
+name: intrusionsense
+
+x-app: &app
+  image: ghcr.io/tonnygol/intrusionsense:${INTRUSIONSENSE_VERSION:-latest}
+  build: .
+  restart: unless-stopped
+
+services:
+  # Makes a random database password and session secret the first time, and keeps them in a private volume.
+  secrets-init:
+    <<: *app
+    restart: "no"
+    user: "0"
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import pathlib, secrets
+        for name in ("db_password", "session_secret"):
+            path = pathlib.Path("/secrets") / name
+            if not path.exists():
+                path.write_text(secrets.token_urlsafe(32))
+            path.chmod(0o444)
+    volumes: [secrets:/secrets]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    depends_on:
+      secrets-init: {condition: service_completed_successfully}
+    environment:
+      MYSQL_DATABASE: intrusionsense
+      MYSQL_USER: intrusionsense
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - db_data:/var/lib/mysql
+      - secrets:/run/secrets:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  app:
+    <<: *app
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      DB_HOST: db
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      L1_THRESHOLD: ${L1_THRESHOLD:-0.20}
+      # set to true when you put the UI behind HTTPS
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    volumes:
+      - secrets:/run/secrets:ro
+    # reachable from this computer only; change the left side deliberately to expose it
+    ports: ["127.0.0.1:8000:8000"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # Linux only: sees the host's real network traffic. Windows and macOS run the sensor program on the host instead.
+  sensor:
+    <<: *app
+    profiles: [capture]
+    depends_on:
+      app: {condition: service_healthy}
+    network_mode: host
+    command: ["sensor", "--server", "http://127.0.0.1:8000"]
+    environment:
+      # register a sensor in the web UI, then put its token in .env as SENSOR_TOKEN
+      INTRUSIONSENSE_SENSOR_TOKEN: ${SENSOR_TOKEN:-}
+      SENSOR_INTERFACE: ${SENSOR_INTERFACE:-}
+    # root inside the container, but with every capability dropped except raw sockets, and a read-only filesystem
+    user: "0"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  db_data:
+  secrets:
