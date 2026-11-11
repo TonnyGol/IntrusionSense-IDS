@@ -1,10 +1,10 @@
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /src
 COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip wheel --no-cache-dir --wheel-dir /wheels .
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 # libpcap: packet capture for the sensor profile; the server image shares it so one image does both jobs
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libpcap0.8 \
