@@ -7,6 +7,15 @@ A network intrusion detection system with a web dashboard. A small **sensor** wa
 - **Roles.** Admin, Manager and SOC Analyst, enforced on the server. Every sign-in and change is logged.
 - **Runs in Docker** on Windows, macOS and Linux. The sensor runs on the machine you want to watch.
 
+![Tour of the dashboard: sign in, search alerts, open one, acknowledge it, watch a new alert arrive live, then the rules, sensors and users pages](docs/dashboard_demo.gif)
+
+<p align="center">
+  <img src="docs/screenshots/alerts.png" width="49%" alt="Alerts page with the 24-hour activity strip and the open alerts">
+  <img src="docs/screenshots/alert-detail.png" width="49%" alt="An alert opened to show the matched rule, the sensor and the captured request data">
+</p>
+
+_All data shown is sample data from a demo server; the attacker addresses are from the reserved documentation ranges._
+
 ```mermaid
 flowchart LR
   NIC[Network interface] -->|capture| S[Sensor]
@@ -73,7 +82,7 @@ To try it without live traffic, replay a capture file: add `--pcap capture.pcap`
 ## How well does it work?
 
 - **Speed.** From a flow closing to a detection decision (network and database excluded) on a laptop: median 0.5 ms, 95th percentile 12 ms. Reproduce with `intrusionsense bench`.
-- **Accuracy.** `intrusionsense evaluate` measures both layers on deduplicated CICIDS2017 data and on days the model never saw, and writes [docs/results.md](docs/results.md). Read the limits section there: a 2017 lab dataset says little about your network.
+- **Accuracy.** `intrusionsense evaluate` trains fresh models with the same recipe as `intrusionsense train` and scores them on deduplicated CICIDS2017 data (and on days the model never saw, when the raw day files are available). It writes [docs/results.md](docs/results.md). The numbers describe that recipe; the model files shipped in the repo were trained earlier (see the notebooks in [research/](research/)) and are not scored directly. Read the limits section there: a 2017 lab dataset says little about your network.
 
 ## Configuration
 
@@ -103,6 +112,13 @@ In a checkout, `docker compose up --build` builds the image from source. Trainin
 ```bash
 intrusionsense record --out data/recordings/mine.csv --minutes 30   # your own normal traffic, optional
 intrusionsense train && intrusionsense evaluate
+```
+
+To remake the screenshots and the GIF above (needs Node.js, Microsoft Edge and ffmpeg):
+
+```bash
+python scripts/demo/serve_demo.py            # a demo server on port 8765 with sample alerts (SQLite, no Docker)
+cd scripts/demo && npm install && npm run record
 ```
 
 Code lives in `src/intrusionsense/`; tests in `tests/`; attack-simulation helpers in `scripts/attack-sim/` (run them only against machines you own).

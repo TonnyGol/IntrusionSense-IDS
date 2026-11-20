@@ -1,0 +1,12 @@
+{
+  "name": "intrusionsense-demo-recorder",
+  "private": true,
+  "type": "module",
+  "description": "Records the README screenshots and GIF from a demo server. Not part of the product.",
+  "scripts": {
+    "record": "node record.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}
