@@ -30,3 +30,7 @@ src/interface2/rules.json
 # Local assistant files
 CLAUDE.md
 goal-prompt.md
+
+# Demo recorder (scripts/demo)
+scripts/demo/node_modules/
+scripts/demo/.demo/
