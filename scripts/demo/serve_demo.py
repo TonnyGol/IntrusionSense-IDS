@@ -66,8 +66,14 @@ def seed(session_factory, services) -> dict:
     """Fill the database with users, sensors and alerts spread over the last 24 hours."""
     with session_factory() as session:
         for name, role in ((ADMIN_USER, "Admin"), ("maria.soc", "SOC Analyst"), ("dan.manager", "Manager")):
-            session.add(User(Username=name, Email=f"{name}@example.com", Role=role,
-                             PasswordHash=hash_password(ADMIN_PASSWORD)))
+            session.add(
+                User(
+                    Username=name,
+                    Email=f"{name}@example.com",
+                    Role=role,
+                    PasswordHash=hash_password(ADMIN_PASSWORD),
+                )
+            )
         tokens = {name: create_sensor(session, name) for name in ("web-server", "office-laptop")}
         rule_ids = {rule.RuleName: rule.RuleID for rule in session.query(Rule).all()}
 
@@ -78,14 +84,26 @@ def seed(session_factory, services) -> dict:
         for repeat in range(repeats):
             at = first + repeat * 5  # five seconds apart folds into one alert with a "seen" count
             record = FlowRecord(
-                src_ip=attacker, dst_ip=target, src_port=40000 + repeat, dst_port=port,
-                protocol=PROTOCOL_TCP, start_time=at - 2, end_time=at, packet_count=12,
-                event=FlowEvent.FINISHED, features={"Packet Length Mean": 96},
+                src_ip=attacker,
+                dst_ip=target,
+                src_port=40000 + repeat,
+                dst_port=port,
+                protocol=PROTOCOL_TCP,
+                start_time=at - 2,
+                end_time=at,
+                packet_count=12,
+                event=FlowEvent.FINISHED,
+                features={"Packet Length Mean": 96},
                 payload_samples=[base64.b64encode(p) for p in PAYLOADS.get(label, [])],  # base64 on the wire
             )
             detection = Detection(
-                record, label, severity_for_label(label), source, confidence=confidence,
-                layer=2 if source is MODEL else None, rule_id=rule_ids.get(label),
+                record,
+                label,
+                severity_for_label(label),
+                source,
+                confidence=confidence,
+                layer=2 if source is MODEL else None,
+                rule_id=rule_ids.get(label),
             )
             services.alert_store.save(detection, web_sensor_id)
         _set_status(session_factory, label, status)
@@ -126,10 +144,16 @@ def main() -> None:
     services = build_services(settings, session_factory)
     tokens = seed(session_factory, services)
 
-    (DEMO_DIR / "state.json").write_text(json.dumps({
-        "url": f"http://{HOST}:{PORT}", "username": ADMIN_USER, "password": ADMIN_PASSWORD,
-        "sensor_token": tokens["office-laptop"],
-    }))
+    (DEMO_DIR / "state.json").write_text(
+        json.dumps(
+            {
+                "url": f"http://{HOST}:{PORT}",
+                "username": ADMIN_USER,
+                "password": ADMIN_PASSWORD,
+                "sensor_token": tokens["office-laptop"],
+            }
+        )
+    )
     threading.Thread(target=keep_sensors_online, args=(session_factory, tokens), daemon=True).start()
     print(f"Demo ready at http://{HOST}:{PORT}  (sign in as {ADMIN_USER}). Ctrl+C to stop.", flush=True)
     uvicorn.run(create_app(services, SESSION_SECRET), host=HOST, port=PORT, log_level="warning")
