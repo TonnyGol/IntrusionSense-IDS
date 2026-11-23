@@ -56,7 +56,7 @@ jobs:
         run: |
           ext=""; [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
           mv "dist/intrusionsense-sensor$ext" "intrusionsense-sensor-${{ matrix.name }}$ext"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sensor-${{ matrix.name }}
           path: intrusionsense-sensor-*
