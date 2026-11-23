@@ -3,6 +3,10 @@ updates:
   - package-ecosystem: pip
     directory: /
     schedule: {interval: weekly}
+    ignore:
+      # the shipped model .pkl files were saved with 1.8.0; bump only together with a retrain
+      - dependency-name: scikit-learn
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: weekly}
